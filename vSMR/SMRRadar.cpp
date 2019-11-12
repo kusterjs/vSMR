@@ -17,7 +17,7 @@ bool standardCursor; // switches between mouse cursor and pointer cursor when mo
 bool customCursor; // use SMR version or default windows mouse symbol
 WNDPROC gSourceProc;
 HWND pluginWindow;
-//LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 map<string, string> CSMRRadar::vStripsStands;
 
@@ -122,6 +122,7 @@ CSMRRadar::~CSMRRadar()
 	}
 	// Shutting down GDI+
 	GdiplusShutdown(m_gdiplusToken);
+	delete CurrentConfig;
 }
 
 void CSMRRadar::LoadCustomFont() {
@@ -313,9 +314,7 @@ void CSMRRadar::OnAsrContentToBeSaved()
 		if (appWindowDisplays[i])
 			to_save = "1";
 		SaveDataToAsr(string(prefix + "Display").c_str(), "Display Secondary Radar Window", to_save.c_str());
-	}
-
-	delete CurrentConfig;
+	}	
 }
 
 void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, bool Released) {
@@ -359,7 +358,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		}
 	}
 
-	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE ||ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO) {
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE ||ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
 		if (!Released)
@@ -797,7 +796,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		}
 	}
 
-	if (ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO) {
+	if (ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS) {
 
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));
@@ -833,6 +832,12 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
 				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GATE, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_EDIT_SCRATCH_PAD, Pt, Area);
 
+			break;
+
+		case TAG_CITEM_GROUNDSTATUS:
+			if (Button == EuroScopePlugIn::BUTTON_RIGHT)
+				StartTagFunction(rt.GetCallsign(), NULL, TAG_CITEM_GROUNDSTATUS, rt.GetCallsign(), NULL, EuroScopePlugIn::TAG_ITEM_FUNCTION_SET_GROUND_STATUS, Pt, Area);
+			
 			break;
 		}
 	
@@ -1491,6 +1496,12 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		sdep += dep.substr(dep.size() - 2, dep.size());
 	}
 
+	// ----- GSTAT -------
+	string gstat = "";
+	if (fp.IsValid() && isAcCorrelated) {
+		gstat = fp.GetGroundState();
+	}
+
 	// ----- Generating the replacing map -----
 	map<string, string> TagReplacingMap;
 
@@ -1543,6 +1554,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	TagReplacingMap["ssr"] = tssr;
 	TagReplacingMap["asid"] = dep;
 	TagReplacingMap["ssid"] = sdep;
+	TagReplacingMap["groundstatus"] = gstat;
 
 	return TagReplacingMap;
 }
@@ -1558,7 +1570,6 @@ void CSMRRadar::OnFlightPlanDisconnect(CFlightPlan FlightPlan)
 	}
 }
 
-/*
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	switch (uMsg)
@@ -1569,7 +1580,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	default:
 		return CallWindowProc(gSourceProc, hwnd, uMsg, wParam, lParam);
 	}
-}*/
+}
 
 void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 {
@@ -1581,15 +1592,16 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
 			// This got broken because of threading as far as I can tell
 			// The cursor does change for some milliseconds but gets reset almost instantly by external MFC code
+
 		}
 		else {
 			smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
 		}
 
 		if (smrCursor != nullptr)
-		{			
-			//pluginWindow = GetActiveWindow();
-			//gSourceProc = (WNDPROC)SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)WindowProc);
+		{		
+			pluginWindow = GetActiveWindow();
+			gSourceProc = (WNDPROC)SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)WindowProc);
 		}
 		initCursor = false;
 	}
@@ -2117,6 +2129,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagClickableMap[TagReplacingMap["tssr"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["asid"]] = TagClickableMap[TagReplacingMap["ssid"]] = TAG_CITEM_SID;
 		TagClickableMap[TagReplacingMap["systemid"]] = TAG_CITEM_NO;
+		TagClickableMap[TagReplacingMap["groundstatus"]] = TAG_CITEM_GROUNDSTATUS;
 
 		//
 		// ----- Now the hard part, drawing (using gdi+) -------
@@ -2212,6 +2225,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label",
 			CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
 		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
+		SolidBrush GroundPushColor(ColorManager->get_corrected_color("label",
+			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
+		SolidBrush GroundTaxiColor(ColorManager->get_corrected_color("label",
+			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
+		SolidBrush GroundDepaColor(ColorManager->get_corrected_color("label",
+			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
 
 
 		// Drawing the leader line
@@ -2273,6 +2292,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
 					color = &RimcasTextColor;
+
+				// Ground tag colors
+				if (strcmp(element.c_str(), "PUSH") == 0)
+					color = &GroundPushColor;
+				if (strcmp(element.c_str(), "TAXI") == 0)
+					color = &GroundTaxiColor;
+				if (strcmp(element.c_str(), "DEPA") == 0)
+					color = &GroundDepaColor;
 
 				RectF mRect(0, 0, 0, 0);
 
@@ -2805,8 +2832,8 @@ void CSMRRadar::EuroScopePlugInExitCustom()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState())
 
-		/*if (smrCursor != nullptr && smrCursor != NULL)
+		if (smrCursor != nullptr && smrCursor != NULL)
 		{
 			SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
-		}*/
+		}
 }
