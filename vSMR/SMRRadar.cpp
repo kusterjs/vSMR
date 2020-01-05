@@ -2112,19 +2112,39 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		// ----- Now the hard part, drawing (using gdi+) -------
 		//
 
-		// First we need to figure out the tag size
+		// Get the TAG label settings
+		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
 
-		int TagWidth = 0, TagHeight = 0;
+		// First we need to figure out the tag size
+		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
 		RectF mesureRect;
 		graphics.MeasureString(L" ", wcslen(L" "), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		int blankWidth = (int)mesureRect.GetRight();
+		auto blankWidth = mesureRect.GetRight();
+
+		// default font size
+		mesureRect = RectF(0, 0, 0, 0);
+		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		auto oneLineHeight = mesureRect.GetBottom();
+
+		// bigger font size if used for 1st TAG line		
+		string font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
+		wstring wide_font_name = wstring(font_name.begin(), font_name.end());
+
+		float fontsize = customFonts[currentFontSize]->GetSize();
+		double fontSizeScaling = 1.0;
+		if (LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("first_line_font_factor")) {
+			fontSizeScaling = LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["first_line_font_factor"].GetDouble();
+			auto test = customFonts[currentFontSize]->GetSize();
+			fontsize = round((float)fontSizeScaling * (float)test);
+		}
+		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFonts[currentFontSize]->GetStyle(), Gdiplus::UnitPixel); ;
 
 		mesureRect = RectF(0, 0, 0, 0);
 		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
-			customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		int oneLineHeight = (int)mesureRect.GetBottom();
+			firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		auto firstLineHeight = mesureRect.GetBottom();
 
-		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
+		// get label lines definitions
 		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()]["definition"];
 		vector<vector<string>> ReplacedLabelLines;
 
@@ -2138,9 +2158,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			vector<string> lineStringArray;
 
 			// Adds one line height
-			TagHeight += oneLineHeight;
+			if (i == 0) {
+				TagHeight += firstLineHeight; // special case 1st line
+			}
+			else {
+				TagHeight += oneLineHeight;
+			}			
 
-			int TempTagWidth = 0;
+			Gdiplus::REAL TempTagWidth = 0;
 
 			for(unsigned int j = 0; j < line.Size(); j++)
 			{
@@ -2153,13 +2178,16 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				lineStringArray.push_back(element);
 
 				wstring wstr = wstring(element.begin(), element.end());
-				graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()),
-					customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-
-				TempTagWidth += (int) mesureRect.GetRight();
+				if (i == 0) {
+					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
+				}
+				else {
+					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+				}
+				TempTagWidth += mesureRect.GetRight();
 
 				if (j != line.Size() - 1)
-					TempTagWidth += (int) blankWidth;
+					TempTagWidth += blankWidth;
 			}
 
 			TagWidth = max(TagWidth, TempTagWidth);
@@ -2201,7 +2229,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Drawing the tag background
 
-		CRect TagBackgroundRect(TagCenter.x - (TagWidth / 2), TagCenter.y - (TagHeight / 2), TagCenter.x + (TagWidth / 2), TagCenter.y + (TagHeight / 2));
+		CRect TagBackgroundRect((int)(TagCenter.x - (TagWidth / 2.0)), (int)(TagCenter.y - (TagHeight / 2.0)), (int)(TagCenter.x + (TagWidth / 2.0)), (int)(TagCenter.y + (TagHeight / 2.0)));
 		SolidBrush TagBackgroundBrush(TagBackgroundColor);
 		graphics.FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
 		if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign()))
@@ -2212,18 +2240,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Drawing the tag text
 
-		SolidBrush FontColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["text_color"])));
-		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
+		SolidBrush FontColor(ColorManager->get_corrected_color("label",	CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["text_color"])));
+		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label",	CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
 		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
-		SolidBrush GroundPushColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
-		SolidBrush GroundTaxiColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
-		SolidBrush GroundDepaColor(ColorManager->get_corrected_color("label",
-			CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
 
+		SolidBrush GroundPushColor(TagBackgroundColor);
+		SolidBrush GroundTaxiColor(TagBackgroundColor);
+		SolidBrush GroundDepaColor(TagBackgroundColor);
+		if (LabelsSettings.HasMember("groundstatus_colors")) {
+			GroundPushColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
+			GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
+			GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
+		}
 
 		// Drawing the leader line
 		RECT TagBackRectData = TagBackgroundRect;
@@ -2272,10 +2300,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagBackgroundRect = oldCrectSave;
 
 		// Clickable zones
-		int heightOffset = 0;
+		Gdiplus::REAL heightOffset = 0;
 		for (auto&& line : ReplacedLabelLines)
 		{
-			int widthOffset = 0;
+			Gdiplus::REAL widthOffset = 0;
 			for (auto&& element : line)
 			{
 				SolidBrush* color = &FontColor;
@@ -2294,27 +2322,40 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 					color = &GroundDepaColor;
 
 				RectF mRect(0, 0, 0, 0);
-
 				wstring welement = wstring(element.begin(), element.end());
 
-				graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
-					PointF(Gdiplus::REAL(TagBackgroundRect.left + widthOffset), Gdiplus::REAL(TagBackgroundRect.top + heightOffset)),
-					&Gdiplus::StringFormat(), color);
+				if (heightOffset == 0) { // first line
+					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+						&Gdiplus::StringFormat(), color);
 
+					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
+				}
+				else {
+					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
+						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+						&Gdiplus::StringFormat(), color);
 
-				graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
-					PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
+					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
+						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
+				}
 
-				CRect ItemRect(TagBackgroundRect.left + widthOffset, TagBackgroundRect.top + heightOffset,
-					TagBackgroundRect.left + widthOffset + (int)mRect.GetRight(), TagBackgroundRect.top + heightOffset + (int)mRect.GetBottom());
+				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
+					(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
 
 				AddScreenObject(TagClickableMap[element], rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()).c_str());
 
-				widthOffset += (int)mRect.GetRight();
+				widthOffset += mRect.GetRight();
 				widthOffset += blankWidth;
 			}
 
-			heightOffset += oneLineHeight;
+			if (heightOffset == 0) {
+				heightOffset += firstLineHeight;
+			}
+			else {
+				heightOffset += oneLineHeight;
+			}
 		}
 
 
