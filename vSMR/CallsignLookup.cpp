@@ -18,11 +18,13 @@ CCallsignLookup::CCallsignLookup(std::string fileName) {
 
 		while (getline(myfile, line)) {
 			sstream << line;
+			if (line[0] == ';') // ignore comments
+				continue;
+
 			string key;
 			string value;
 
 			std::string delimiter = "\t";
-
 			std::string token;
 
 			size_t pos1 = line.find(delimiter);
@@ -31,7 +33,9 @@ CCallsignLookup::CCallsignLookup(std::string fileName) {
 
 			size_t pos2 = line.find(delimiter);
 			line.erase(0, pos2 + delimiter.length());
-			value = line.substr(0, line.length());
+
+			size_t pos3 = line.find(delimiter);
+			value = line.substr(0, pos3);
 
 			for (unsigned int i = 0; i < value.size(); i++)
 				value[i] = toupper(value[i]);
