@@ -15,7 +15,8 @@ void CRimcas::Reset() {
 	RunwayAreas.clear();
 	AcColor.clear();
 	AcOnRunway.clear();
-	TimeTable.clear();
+	//TimeTable.clear();
+	IAWQueue.clear();
 	MonitoredRunwayArr.clear();
 	MonitoredRunwayDep.clear();
 	ApproachingAircrafts.clear();
@@ -25,7 +26,8 @@ void CRimcas::OnRefreshBegin(bool isLVP) {
 	Logger::info(string(__FUNCSIG__));
 	AcColor.clear();
 	AcOnRunway.clear();
-	TimeTable.clear();
+	//TimeTable.clear();
+	IAWQueue.clear();
 	ApproachingAircrafts.clear();
 	this->IsLVP = isLVP;
 }
@@ -33,7 +35,8 @@ void CRimcas::OnRefreshBegin(bool isLVP) {
 void CRimcas::OnRefresh(CRadarTarget Rt, CRadarScreen *instance, bool isCorrelated) {
 	Logger::info(string(__FUNCSIG__));
 	GetAcInRunwayArea(Rt, instance);
-	GetAcInRunwayAreaSoon(Rt, instance, isCorrelated);
+	//GetAcInRunwayAreaSoon(Rt, instance, isCorrelated);
+	GetAcInRunwayAreaSoonDistance(Rt, instance);
 }
 
 void CRimcas::AddRunwayArea(CRadarScreen *instance, string runway_name1, string runway_name2, vector<CPosition> Definition) {
@@ -72,6 +75,7 @@ string CRimcas::GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance) {
 	
 		if (Is_Inside(AcPosPix, RunwayOnScreen)) {
 			AcOnRunway.insert(std::pair<string, string>(it->first, Ac.GetCallsign()));
+			IAWQueueColors.erase(Ac.GetCallsign());
 			return string(it->first);
 		}
 	}
@@ -79,7 +83,7 @@ string CRimcas::GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance) {
 	return string_false;
 }
 
-string CRimcas::GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated) {
+string CRimcas::_GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated) {
 	Logger::info(string(__FUNCSIG__));
 	int AltitudeDif = Ac.GetPosition().GetFlightLevel() - Ac.GetPreviousPosition(Ac.GetPosition()).GetFlightLevel();
 	if (!Ac.GetPosition().GetTransponderC())
@@ -102,8 +106,7 @@ string CRimcas::GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, b
 		if (!MonitoredRunwayArr[it->first])
 			continue;
 
-		// We need to know when and if the AC is going to enter the runway within 5 minutes (by steps of 10 seconds
-
+		// We need to know when and if the AC is going to enter the runway within 5 minutes (by steps of 10 seconds)
 		vector<POINT> RunwayOnScreen;
 
 		for (auto &Point : it->second.Definition)
@@ -164,7 +167,7 @@ string CRimcas::GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, b
 					}
 					if (t < PreviousTime && t >= Time)
 					{
-						TimeTable[it->first][Time] = Ac.GetCallsign();
+						_TimeTable[it->first][Time] = Ac.GetCallsign();
 						break;
 					}
 				}
@@ -189,6 +192,116 @@ string CRimcas::GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, b
 	}
 
 	return CRimcas::string_false;
+}
+
+void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen *instance) {
+	Logger::info(string(__FUNCSIG__));
+	int AltitudeDif = aircraft.GetPosition().GetFlightLevel() - aircraft.GetPreviousPosition(aircraft.GetPosition()).GetFlightLevel();
+	if (!aircraft.GetPosition().GetTransponderC())
+		AltitudeDif = 0;
+
+	// Making sure the AC is airborne and not climbing, but below transition
+	if (aircraft.GetGS() < 50 ||
+		AltitudeDif > 50 ||
+		aircraft.GetPosition().GetPressureAltitude() > instance->GetPlugIn()->GetTransitionAltitude())
+		return;
+
+	// If the AC is already on the runway, then there is no point in this step
+	if (isAcOnRunway(aircraft.GetCallsign()))
+		return;
+
+	POINT AcPosPix = instance->ConvertCoordFromPositionToPixel(aircraft.GetPosition().GetPosition());
+
+	for (std::map<string, RunwayAreaType>::iterator it = RunwayAreas.begin(); it != RunwayAreas.end(); ++it)
+	{
+		if (!MonitoredRunwayArr[it->first])
+			continue;
+
+		string callsign = aircraft.GetCallsign();
+
+		// We compute the pixel positions of the runway and the distance from plane to runway threshold
+		vector<POINT> RunwayOnScreen;
+		double distanceToThreshold = 20.0; // We only care about planes closer to the runway than 15NM so we can default to this value even if the plane is further out since it won't be included in the final list.
+		for (auto &Point : it->second.Definition)
+		{
+			RunwayOnScreen.push_back(instance->ConvertCoordFromPositionToPixel(Point));
+			double distanceToRunwayPoint = aircraft.GetPosition().GetPosition().DistanceTo(Point);
+			if (distanceToRunwayPoint < distanceToThreshold) {
+				distanceToThreshold = distanceToRunwayPoint;
+			}
+		}
+			
+		// Check if the plane is heading for the runway (predicted position with current heading and distance to threshold)
+		// We tolerate up 2 degree variations to the runway at long range (> 10NM)
+		// And 3 degrees after (<= 10NM)
+		bool isGoingToLand = false;
+		int AngleMin = -2;
+		int AngleMax = 2;
+		if (distanceToThreshold <= 10.0)
+		{
+			AngleMin = -3;
+			AngleMax = 3;
+		}
+
+		for (int a = AngleMin; a <= AngleMax; a++)
+		{
+			POINT PredictedPosition = instance->ConvertCoordFromPositionToPixel(
+				BetterHarversine(aircraft.GetPosition().GetPosition(), fmod(aircraft.GetTrackHeading() + a, 360), NauticalMilesToMeters(distanceToThreshold + 0.1))); // Add small offset to be safely inside the runway area
+			isGoingToLand = Is_Inside(PredictedPosition, RunwayOnScreen);
+
+			if (isGoingToLand)
+				break;
+		}
+
+		if (isGoingToLand)
+		{			
+			// The aircraft is going to be on the runway, add it to the AIW if it's not already present
+			double timeToThreshold = (distanceToThreshold / aircraft.GetPosition().GetReportedGS()) * 3600; // NM / knot = 1h 
+			if (timeToThreshold < 180.0) {
+
+				//// Check if airplane is already in IAW queue before inserting it
+				//for (auto acft : IAWQueue[it->first]) {
+				//	if (acft.callsign == aircraft.GetCallsign()) { // Plane was already inserted in the queue, update its data
+				//		acft.time = timeToThreshold;
+				//		acft.distance = distanceToThreshold;
+				//		return;
+				//	}
+				//}
+
+				//if (IAWQueue.size() == 1) {
+				//	return;
+				//}
+
+				if (IAWQueueColors.count(callsign) == 0) {
+					IAWQueueColors[callsign] = IAWColors.front();
+					IAWColors.push_back(IAWColors.front());
+					IAWColors.pop_front();
+				}
+
+				IAW_Aircraft aircraftData;
+				aircraftData.callsign = callsign;
+				aircraftData.time = timeToThreshold;
+				aircraftData.distance = distanceToThreshold;
+				aircraftData.colors = IAWQueueColors[callsign];
+				
+				IAWQueue[it->first].insert(aircraftData);
+
+				// If the AC is xx seconds away from the runway, we consider him on it
+				int StageTwoTrigger = 20;
+				if (IsLVP)
+					StageTwoTrigger = 30;
+
+				if (timeToThreshold <= StageTwoTrigger)
+					AcOnRunway.insert(std::pair<string, string>(it->first, callsign));
+
+				// If the AC is 45 seconds away from the runway, we consider him approaching
+				if (timeToThreshold > StageTwoTrigger && timeToThreshold <= 45)
+					ApproachingAircrafts.insert(std::pair<string, string>(it->first, callsign));
+
+			}
+			return;
+		}
+	}
 }
 
 vector<CPosition> CRimcas::GetRunwayArea(CPosition Left, CPosition Right, float hwidth) {

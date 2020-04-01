@@ -2,6 +2,8 @@
 #include <EuroScopePlugIn.h>
 #include <iostream>
 #include <vector>
+#include <set>
+#include <queue>
 #include <map>
 #include <string>
 #include <algorithm>
@@ -16,6 +18,7 @@ using namespace std;
 using namespace Gdiplus;
 using namespace EuroScopePlugIn;
 
+
 class CRimcas {
 public:
 	CRimcas();
@@ -29,6 +32,26 @@ public:
 		bool set = false;
 	};
 
+	struct IAW_Aircraft {
+		string callsign;
+		double time;
+		double distance;
+		pair<COLORREF, COLORREF> colors;
+		bool operator<(const IAW_Aircraft& p) const
+		{
+			return time < p.time;
+		}
+	};
+	
+	deque<pair<COLORREF, COLORREF>> IAWColors = {
+		{ RGB(84, 122, 44),    RGB(97, 144, 49) },
+		{ RGB(104, 122, 90), RGB(123, 144, 108) },
+		{ RGB(84, 161, 44), RGB(97, 192, 49) },
+		{ RGB(104, 161, 90), RGB(123, 192, 108) },
+		{ RGB(84, 200, 44), RGB(97, 232, 49) },
+		{ RGB(104, 200, 90), RGB(123, 232, 108) }
+	};
+
 	COLORREF WarningColor = RGB(160, 90, 30); //RGB(180, 100, 50)
 	COLORREF AlertColor = RGB(150, 0, 0);
 
@@ -39,7 +62,9 @@ public:
 	vector<int> CountdownDefinition;
 	vector<int> CountdownDefinitionLVP;
 	multimap<string, string> ApproachingAircrafts;
-	map<string, map<int, string>> TimeTable;
+	map<string, map<int, string>> _TimeTable;
+	map<string, set<IAW_Aircraft>> IAWQueue;
+	map<string, pair<COLORREF, COLORREF>> IAWQueueColors; // maps callsign to IAW color, I don't have any better idea so far...
 	map<string, bool> MonitoredRunwayDep;
 	map<string, bool> MonitoredRunwayArr;
 	map<string, RimcasAlertTypes> AcColor;
@@ -50,6 +75,10 @@ public:
 	{
 		return ((p1.x - p0.x) * (point.y - p0.y) -
 			(point.x - p0.x) * (p1.y - p0.y));
+	}
+
+	inline double NauticalMilesToMeters(double nm) {
+		return nm * 1852;
 	}
 
 	bool Is_Inside(const POINT &point, const std::vector<POINT> &points_list)
@@ -104,7 +133,8 @@ public:
 	}
 
 	string GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance);
-	string GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated);
+	string _GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated);
+	void GetAcInRunwayAreaSoonDistance(CRadarTarget Ac, CRadarScreen *instance);
 	void AddRunwayArea(CRadarScreen *instance, string runway_name1, string runway_name2, vector<CPosition> Definition);
 	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo);
 	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor);

@@ -2365,10 +2365,98 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	// Releasing the hDC after the drawing
 	graphics.ReleaseHDC(hDC);
+	int oldDC = SaveDC(dc);
+	
+	Logger::info("RIMCAS Loop");
+	for (std::map<string, bool>::iterator it = RimcasInstance->MonitoredRunwayArr.begin(); it != RimcasInstance->MonitoredRunwayArr.end(); ++it)
+	{
+		if (!it->second || RimcasInstance->IAWQueue[it->first].empty())
+			continue;			
 
+		if (TimePopupAreas.find(it->first) == TimePopupAreas.end())
+			TimePopupAreas[it->first] = { 300, 300, 380, 380 };
+
+		CRect baseRect = TimePopupAreas[it->first];
+		baseRect.NormalizeRect();
+		POINT center = baseRect.CenterPoint();
+
+		// Drawing the runway name
+		string tempS = (it->first).substr(0,2);
+		dc.TextOutA(center.x - dc.GetTextExtent(tempS.c_str()).cx / 2, center.y - dc.GetTextExtent(tempS.c_str()).cy/2, tempS.c_str());
+
+		// Drawing arcs
+		CRect outerRect(baseRect);
+		CRect innerRect(baseRect);
+		innerRect.DeflateRect(20, 20);
+
+		POINT arcInnerStart, arcInnerEnd, arcOuterStart, arcOuterEnd;
+		arcInnerStart.x = center.x;
+		arcInnerStart.y = innerRect.bottom;
+		arcOuterEnd.x = center.x;
+		arcOuterEnd.y = outerRect.bottom;
+
+		for (auto aircraft : RimcasInstance->IAWQueue[it->first]) {
+
+			double arcAngle = aircraft.time / 90 * M_PI; // [0-180sec] -> [0-2Pi]
+			double sinAngle = sin(arcAngle);
+			double cosAngle = cos(arcAngle);
+
+			arcInnerEnd.x = center.x - sinAngle*innerRect.Width() / 2;
+			arcInnerEnd.y = center.y + cosAngle*innerRect.Height() / 2;
+
+			arcOuterStart.x = center.x - sinAngle*outerRect.Width() / 2;
+			arcOuterStart.y = center.y + cosAngle*outerRect.Height() / 2;
+									
+			// Draw an arc segment
+			CPen arcPen(PS_SOLID, 2, aircraft.colors.second);
+			CBrush arcBrush(aircraft.colors.first);
+
+			dc.SelectObject(arcPen);
+			dc.SelectObject(arcBrush);
+
+			dc.MoveTo(arcInnerStart);
+			dc.BeginPath();
+			dc.SetArcDirection(AD_CLOCKWISE);
+			dc.ArcTo(&innerRect, arcInnerStart, arcInnerEnd);
+			//dc.LineTo(arcOuterStart); // Apparently useless, the path closes by itself
+			dc.SetArcDirection(AD_COUNTERCLOCKWISE);
+			dc.ArcTo(&outerRect, arcOuterStart, arcOuterEnd);
+			dc.LineTo(arcInnerStart);
+			dc.EndPath();
+						
+			dc.StrokeAndFillPath();
+			
+			long arcLineX = center.x - sinAngle*baseRect.Width()*0.65;
+			long arcLineY = center.y + cosAngle*baseRect.Height()*0.65;			
+			dc.MoveTo(arcInnerEnd);
+			dc.LineTo(arcLineX, arcLineY);
+			
+			auto textSize = dc.GetTextExtent(aircraft.callsign.c_str());
+			long arcTextX = arcLineX - sinAngle*textSize.cx*0.7;
+			long arcTextY = arcLineY + cosAngle*textSize.cy*0.5 - 6;
+			dc.SetTextColor(aircraft.colors.second);
+			dc.SetTextAlign(TA_CENTER);
+			dc.TextOutA(arcTextX, arcTextY, aircraft.callsign.c_str());
+
+			outerRect.DeflateRect(4, 4);
+
+			double arcAngleOffset = (aircraft.time +2) / 90 * M_PI; // We add a tiny angle offset so that the arcs don't overlap
+			arcInnerStart.x = center.x - sin(arcAngleOffset)*innerRect.Width() / 2;
+			arcInnerStart.y = center.y + cos(arcAngleOffset)*innerRect.Height() / 2;
+
+			arcOuterEnd.x = center.x - sin(arcAngleOffset)*outerRect.Width() / 2;
+			arcOuterEnd.y = center.y + cos(arcAngleOffset)*outerRect.Height() / 2;
+		}		
+
+		AddScreenObject(RIMCAS_IAW, it->first.c_str(), baseRect, true, "");
+	}
+
+	RestoreDC(dc, oldDC);
+
+	/*
 	CBrush BrushGrey(RGB(150, 150, 150));
 	COLORREF oldColor = dc.SetTextColor(RGB(33, 33, 33));
-
+	
 	int TextHeight = dc.GetTextExtent("60").cy;
 	Logger::info("RIMCAS Loop");
 	for (std::map<string, bool>::iterator it = RimcasInstance->MonitoredRunwayArr.begin(); it != RimcasInstance->MonitoredRunwayArr.end(); ++it)
@@ -2421,8 +2509,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		}
 
 		AddScreenObject(RIMCAS_IAW, it->first.c_str(), CRectTime, true, "");
-
 	}
+	*/
 
 	Logger::info("Menu bar lists");
 
