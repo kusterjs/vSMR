@@ -51,7 +51,6 @@ bool mouseWithin(CRect rect) {
 
 CSMRRadar::CSMRRadar()
 {
-
 	Logger::info("CSMRRadar::CSMRRadar()");
 
 	// Initializing randomizer
@@ -1530,15 +1529,14 @@ void CSMRRadar::OnFlightPlanDisconnect(CFlightPlan FlightPlan)
 }
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
-{
-	switch (uMsg)
-	{
-	case WM_SETCURSOR:
-		SetCursor(cursor);
-		return true;
-	default:
-		return CallWindowProc(gSourceProc, hwnd, uMsg, wParam, lParam);
-	}
+{	
+	switch (uMsg) {
+		case WM_SETCURSOR:
+			SetCursor(cursor);
+			return true;		
+		default:
+			return CallWindowProc(gSourceProc, hwnd, uMsg, wParam, lParam);
+	}	
 }
 
 void CSMRRadar::OnRefresh(HDC hDC, int Phase)

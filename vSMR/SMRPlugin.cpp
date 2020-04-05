@@ -8,9 +8,9 @@ bool HoppieConnected = false;
 bool ConnectionMessage = false;
 
 string logonCode = "";
-string logonCallsign = "EGKK";
+string logonCallsign = "LSGG";
 
-HttpHelper * httpHelper = NULL;
+HttpHelper* httpHelper = NULL;
 
 bool BLINK = false;
 
@@ -76,7 +76,7 @@ void datalinkLogin(void * arg) {
 	url += "&from=";
 	url += logonCallsign;
 	url += "&to=SERVER&type=PING";
-	raw.assign(httpHelper->downloadStringFromURL(url));
+	raw = httpHelper->downloadStringFromURL(url);
 
 	if (startsWith("ok", raw.c_str())) {
 		HoppieConnected = true;
@@ -105,7 +105,7 @@ void sendDatalinkMessage(void * arg) {
 		start_pos += string("%20").length();
 	}
 
-	raw.assign(httpHelper->downloadStringFromURL(url));
+	raw = httpHelper->downloadStringFromURL(url);
 
 	if (startsWith("ok", raw.c_str())) {
 		if (PendingMessages.find(DatalinkToSend.callsign) != PendingMessages.end())
@@ -125,7 +125,7 @@ void pollMessages(void * arg) {
 	url += "&from=";
 	url += logonCallsign;
 	url += "&to=SERVER&type=POLL";
-	raw.assign(httpHelper->downloadStringFromURL(url));
+	raw = httpHelper->downloadStringFromURL(url);
 
 	if (!startsWith("ok", raw.c_str()) || raw.size() <= 3)
 		return;
@@ -244,7 +244,7 @@ void sendDatalinkClearance(void * arg) {
 		start_pos += string("%20").length();
 	}
 
-	raw.assign(httpHelper->downloadStringFromURL(url));
+	raw = httpHelper->downloadStringFromURL(url);
 
 	if (startsWith("ok", raw.c_str())) {
 		if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), DatalinkToSend.callsign.c_str()) != AircraftDemandingClearance.end()) {
