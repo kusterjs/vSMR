@@ -24,8 +24,7 @@ public:
 	Gdiplus::Color getSidColor(string sid, string airport);
 	const Value& getAirportMapIfAny(string airport);
 	bool isAirportMapAvail(string airport);
-	bool isCustomRunwayAvail(string airport, string name1, string name2);
-	bool isCustomCursorUsed();
+	bool isCustomRunwayAvail(string airport, string name1, string name2);	
 
 	Gdiplus::Color getConfigColor(const Value& config_path);
 	COLORREF getConfigColorRef(const Value& config_path);

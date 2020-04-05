@@ -41,7 +41,7 @@ void CRimcas::OnRefresh(CRadarTarget Rt, CRadarScreen *instance, bool isCorrelat
 
 void CRimcas::AddRunwayArea(CRadarScreen *instance, string runway_name1, string runway_name2, vector<CPosition> Definition) {
 	Logger::info(string(__FUNCSIG__));
-	string Name = runway_name1 + " / " + runway_name2;
+	string Name = runway_name1 + "/" + runway_name2;
 	
 	RunwayAreaType Runway;
 	Runway.Name = Name;
@@ -211,7 +211,6 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 		return;
 
 	POINT AcPosPix = instance->ConvertCoordFromPositionToPixel(aircraft.GetPosition().GetPosition());
-
 	for (std::map<string, RunwayAreaType>::iterator it = RunwayAreas.begin(); it != RunwayAreas.end(); ++it)
 	{
 		if (!MonitoredRunwayArr[it->first])
@@ -221,6 +220,7 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 
 		// We compute the pixel positions of the runway and the distance from plane to runway threshold
 		vector<POINT> RunwayOnScreen;
+		double directionToThreshold;
 		double distanceToThreshold = 20.0; // We only care about planes closer to the runway than 15NM so we can default to this value even if the plane is further out since it won't be included in the final list.
 		for (auto &Point : it->second.Definition)
 		{
@@ -228,32 +228,33 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 			double distanceToRunwayPoint = aircraft.GetPosition().GetPosition().DistanceTo(Point);
 			if (distanceToRunwayPoint < distanceToThreshold) {
 				distanceToThreshold = distanceToRunwayPoint;
+				directionToThreshold = aircraft.GetPosition().GetPosition().DirectionTo(Point);
 			}
 		}
-			
-		// Check if the plane is heading for the runway (predicted position with current heading and distance to threshold)
-		// We tolerate up 2 degree variations to the runway at long range (> 10NM)
-		// And 3 degrees after (<= 10NM)
-		bool isGoingToLand = false;
-		int AngleMin = -2;
-		int AngleMax = 2;
-		if (distanceToThreshold <= 10.0)
-		{
-			AngleMin = -3;
-			AngleMax = 3;
-		}
 
-		for (int a = AngleMin; a <= AngleMax; a++)
-		{
-			POINT PredictedPosition = instance->ConvertCoordFromPositionToPixel(
-				BetterHarversine(aircraft.GetPosition().GetPosition(), fmod(aircraft.GetTrackHeading() + a, 360), NauticalMilesToMeters(distanceToThreshold + 0.1))); // Add small offset to be safely inside the runway area
-			isGoingToLand = Is_Inside(PredictedPosition, RunwayOnScreen);
+		//bool isGoingToLand = false;
+		//int AngleMin = -2;
+		//int AngleMax = 2;
+		//if (distanceToThreshold <= 10.0)
+		//{
+		//	AngleMin = -3;
+		//	AngleMax = 3;
+		//}
 
-			if (isGoingToLand)
-				break;
-		}
+		//for (double a = AngleMin; a <= AngleMax; a += 0.5)
+		//{
+		//	POINT PredictedPosition = instance->ConvertCoordFromPositionToPixel(
+		//		BetterHarversine(aircraft.GetPosition().GetPosition(), fmod(aircraft.GetTrackHeading() + a, 360), NauticalMilesToMeters(distanceToThreshold + 0.1))); // Add small offset to be safely inside the runway area
+		//	isGoingToLand = Is_Inside(PredictedPosition, RunwayOnScreen);
 
-		if (isGoingToLand)
+		//	if (isGoingToLand)
+		//		break;
+		//}
+
+		// Check if the plane is heading for the runway (dot product between plane direction vector and plane-threshold vector)
+		double planeDirection = aircraft.GetPosition().GetReportedHeading();
+		// We check if the plane's heading matches the runway direction, we give (more or less) +/-2° at 20NM and +/-3° at 10NM
+		if (abs(planeDirection - directionToThreshold) < (400.0 / (distanceToThreshold*distanceToThreshold + 50.0)))
 		{			
 			// The aircraft is going to be on the runway, add it to the AIW if it's not already present
 			double timeToThreshold = (distanceToThreshold / aircraft.GetPosition().GetReportedGS()) * 3600; // NM / knot = 1h 

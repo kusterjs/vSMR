@@ -144,6 +144,7 @@ public:
 
 	string ActiveAirport = "LSZH";
 
+	/*
 	inline string getActiveAirport() {
 		return ActiveAirport;
 	}
@@ -151,6 +152,7 @@ public:
 	inline string setActiveAirport(string value) {
 		return ActiveAirport = value;
 	}
+	*/
 
 	//---GenerateTagData--------------------------------------------
 
@@ -208,6 +210,8 @@ public:
 			return true;
 		}
 	};
+
+	void SMRSetCursor(HCURSOR targetCursor);
 
 	//---CorrelateCursor--------------------------------------------
 
@@ -269,7 +273,7 @@ public:
 		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
 		bool isAcDisplayed = true;
 
-		if (AirportPositions[getActiveAirport()].DistanceTo(RtPos.GetPosition()) > radarRange)
+		if (AirportPositions[ActiveAirport].DistanceTo(RtPos.GetPosition()) > radarRange)
 			isAcDisplayed = false;
 
 		if (altitudeFilter != 0) {

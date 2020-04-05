@@ -12,9 +12,17 @@ int LeaderLineDefaultlenght = 50;
 //
 
 bool initCursor = true;
-HCURSOR smrCursor = NULL;
-bool standardCursor; // switches between mouse cursor and pointer cursor when moving tags
-bool customCursor; // use SMR version or default windows mouse symbol
+bool useCustomCursor; // use SMR version or default windows mouse symbol
+HCURSOR cursor = NULL; // The current active cursor
+
+HCURSOR defaultCursor; // windows mouse cursor
+HCURSOR smrCursor; // smr mouse cursor
+HCURSOR moveCursor;
+HCURSOR resizeCursor;
+HCURSOR tagCursor;
+HCURSOR correlateCursor;
+HCURSOR mouseCursor; // default windows or SMR mouse cursor depending on user setting
+
 WNDPROC gSourceProc;
 HWND pluginWindow;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -91,8 +99,16 @@ CSMRRadar::CSMRRadar()
 	if (ColorManager == nullptr)
 		ColorManager = new CColorManager();
 
-	standardCursor = true;	
-	ActiveAirport = "EGKK";
+	//standardCursor = true;	
+	defaultCursor		= (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
+	smrCursor			= CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
+	moveCursor			= CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVEWINDOW), IMAGE_CURSOR, 0, 0, LR_SHARED));
+	resizeCursor		= CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRRESIZE), IMAGE_CURSOR, 0, 0, LR_SHARED));
+	tagCursor			= CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVETAG), IMAGE_CURSOR, 0, 0, LR_SHARED));
+	correlateCursor		= CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCORRELATE), IMAGE_CURSOR, 0, 0, LR_SHARED));
+	mouseCursor			= defaultCursor;
+
+	ActiveAirport = "LSZH";
 
 	// Setting up the data for the 2 approach windows
 	appWindowDisplays[1] = false;
@@ -126,35 +142,29 @@ CSMRRadar::~CSMRRadar()
 	delete CurrentConfig;
 }
 
+void CSMRRadar::SMRSetCursor(HCURSOR targetCursor) {
+	cursor = targetCursor;
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+	ASSERT(targetCursor);
+	SetCursor(targetCursor);
+}
+
 void CSMRRadar::CorrelateCursor() {
 	if (NeedCorrelateCursor)
-	{
-		if (standardCursor)
-		{
-			smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCORRELATE), IMAGE_CURSOR, 0, 0, LR_SHARED));
-
-			AFX_MANAGE_STATE(AfxGetStaticModuleState());
-			ASSERT(smrCursor);
-			SetCursor(smrCursor);
-			standardCursor = false;
-		}
+	{		
+		SMRSetCursor(correlateCursor);
+		//cursor = correlateCursor;
+		//AFX_MANAGE_STATE(AfxGetStaticModuleState());
+		//ASSERT(smrCursor);
+		//SetCursor(smrCursor);
 	}
 	else
-	{
-		if (!standardCursor)
-		{
-			if (customCursor) {
-				smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
-			}
-			else {
-				smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
-			}
-
-			AFX_MANAGE_STATE(AfxGetStaticModuleState());
-			ASSERT(smrCursor);
-			SetCursor(smrCursor);
-			standardCursor = true;
-		}
+	{		
+		SMRSetCursor(mouseCursor);
+		//cursor = mouseCursor;
+		//AFX_MANAGE_STATE(AfxGetStaticModuleState());
+		//ASSERT(smrCursor);
+		//SetCursor(smrCursor);
 	}
 }
 
@@ -200,8 +210,6 @@ void CSMRRadar::LoadProfile(string profileName) {
 	RimcasInstance->setCountdownDefinition(RimcasNorm, RimcasLVP);
 	LeaderLineDefaultlenght = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
 
-	customCursor = CurrentConfig->isCustomCursorUsed();
-
 	// Reloading the fonts
 	this->LoadCustomFont();
 }
@@ -213,7 +221,7 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 
 	// ReSharper disable CppZeroConstantCanBeReplacedWithNullptr
 	if ((p_value = GetDataFromAsr("Airport")) != NULL)
-		setActiveAirport(p_value);
+		ActiveAirport = p_value;
 
 	if ((p_value = GetDataFromAsr("ActiveProfile")) != NULL)
 		this->LoadProfile(string(p_value));
@@ -232,6 +240,9 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 
 	if ((p_value = GetDataFromAsr("PredictedLine")) != NULL)
 		PredictedLenght = atoi(p_value);
+
+	if ((p_value = GetDataFromAsr("CustomCursor")) != NULL)
+		useCustomCursor = atoi(p_value) == 1 ? true : false;
 
 	string temp;
 
@@ -277,7 +288,7 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		rwy.IsValid();
 		rwy = GetPlugIn()->SectorFileElementSelectNext(rwy, SECTOR_ELEMENT_RUNWAY))
 	{
-		if (startsWith(getActiveAirport().c_str(), rwy.GetAirportName())) {
+		if (startsWith(ActiveAirport.c_str(), rwy.GetAirportName())) {
 			string name = rwy.GetRunwayName(0) + string(" / ") + rwy.GetRunwayName(1);
 
 			if (rwy.IsElementActive(true, 0) || rwy.IsElementActive(true, 1) || rwy.IsElementActive(false, 0) || rwy.IsElementActive(false, 1)) {
@@ -296,7 +307,7 @@ void CSMRRadar::OnAsrContentToBeSaved()
 {
 	Logger::info(string(__FUNCSIG__));
 
-	SaveDataToAsr("Airport", "Active airport for RIMCAS", getActiveAirport().c_str());
+	SaveDataToAsr("Airport", "Active airport for RIMCAS", ActiveAirport.c_str());
 
 	SaveDataToAsr("ActiveProfile", "vSMR active profile", CurrentConfig->getActiveProfileName().c_str());
 
@@ -309,6 +320,8 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	SaveDataToAsr("GndTrailsDots", "vSMR GRND Trail Dots", std::to_string(Trail_Gnd).c_str());
 
 	SaveDataToAsr("PredictedLine", "vSMR Predicted Track Lines", std::to_string(PredictedLenght).c_str());
+	
+	SaveDataToAsr("CustomCursor", "vSMR Custom Mouse Cursor", std::to_string(useCustomCursor).c_str());
 
 	string temp = "";
 
@@ -359,35 +372,24 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		bool toggleCursor = appWindows[appWindowId]->OnMoveScreenObject(sObjectId, Pt, Area, Released);
 
 		if (!toggleCursor)
-		{
-			if (standardCursor)
-			{
-				if (strcmp(sObjectId, "topbar") == 0)
-					smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVEWINDOW), IMAGE_CURSOR, 0, 0, LR_SHARED));
-				else if (strcmp(sObjectId, "resize") == 0)
-					smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRRESIZE), IMAGE_CURSOR, 0, 0, LR_SHARED));
+		{			
+			if (strcmp(sObjectId, "topbar") == 0)
+				SMRSetCursor(moveCursor);
+			else if (strcmp(sObjectId, "resize") == 0)
+				SMRSetCursor(resizeCursor);
 
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = false;
-			}
-		} else
-		{
-			if (!standardCursor)
-			{
-				if (customCursor) {
-					smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
-				}
-				else {
-					smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
-				}
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = false;*/
+		} 
+		else {			
+			SMRSetCursor(mouseCursor);
 
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = true;
-			}
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = true;*/
 		}
 	}
 
@@ -395,32 +397,20 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
 		if (!Released)
-		{
-			if (standardCursor)
-			{
-				smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVETAG), IMAGE_CURSOR, 0, 0, LR_SHARED));
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = false;
-			}
+		{			
+			SMRSetCursor(tagCursor);
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = false;		*/	
 		}
 		else
-		{
-			if (!standardCursor)
-			{
-				if (customCursor) {
-					smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
-				}
-				else {
-					smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
-				}
-
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = true;
-			}
+		{			
+			SMRSetCursor(mouseCursor);
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = true;		*/	
 		}
 
 		if (rt.IsValid()) {
@@ -466,33 +456,20 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		TimePopupAreas[sObjectId] = Area;
 
 		if (!Released)
-		{
-			if (standardCursor)
-			{
-				smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVEWINDOW), IMAGE_CURSOR, 0, 0, LR_SHARED));
-
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = false;
-			}
+		{			
+			SMRSetCursor(moveCursor);
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = false;*/
 		}
 		else
 		{
-			if (!standardCursor)
-			{
-				if (customCursor) {
-					smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));					
-				}
-				else {
-					smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
-				}
-
-				AFX_MANAGE_STATE(AfxGetStaticModuleState());
-				ASSERT(smrCursor);
-				SetCursor(smrCursor);
-				standardCursor = true;
-			}
+			SMRSetCursor(mouseCursor);
+			/*AFX_MANAGE_STATE(AfxGetStaticModuleState());
+			ASSERT(smrCursor);
+			SetCursor(smrCursor);
+			standardCursor = true;*/
 		}
 	}
 
@@ -563,7 +540,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 	}
 
 	if (ObjectType == RIMCAS_ACTIVE_AIRPORT) {
-		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_ACTIVE_AIRPORT_FUNC, getActiveAirport().c_str());
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_ACTIVE_AIRPORT_FUNC, ActiveAirport.c_str());
 	}
 
 	if (ObjectType == DRAWING_BACKGROUND_CLICK)
@@ -600,6 +577,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			Area.bottom = Area.bottom + 30;
 
 			GetPlugIn()->OpenPopupList(Area, "Display Menu", 1);
+			GetPlugIn()->AddPopupListElement("Custom Cursor", "", RIMCAS_CUSTOM_CURSOR_TOGGLE, false, int(useCustomCursor));
 			GetPlugIn()->AddPopupListElement("QDR Fixed Reference", "", RIMCAS_QDM_TOGGLE);
 			GetPlugIn()->AddPopupListElement("QDR Select Reference", "", RIMCAS_QDM_SELECT_TOGGLE);
 			GetPlugIn()->AddPopupListElement("SRW 1", "", APPWINDOW_ONE, false, int(appWindowDisplays[1]));
@@ -866,8 +844,8 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	}
 
 	if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
-		setActiveAirport(sItemString);
-		SaveDataToAsr("Airport", "Active airport", getActiveAirport().c_str());
+		ActiveAirport = sItemString;
+		SaveDataToAsr("Airport", "Active airport", ActiveAirport.c_str());
 	}
 
 	if (FunctionId == RIMCAS_UPDATE_FONTS) {
@@ -885,6 +863,17 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		ShowLists["Label Font Size"] = true;
 	}
 
+	if (FunctionId == RIMCAS_CUSTOM_CURSOR_TOGGLE) {
+		useCustomCursor = !useCustomCursor;
+		if (useCustomCursor) {
+			mouseCursor = smrCursor;
+		}
+		else {
+			mouseCursor = defaultCursor;
+		}
+		SMRSetCursor(mouseCursor);
+	}
+
 	if (FunctionId == RIMCAS_QDM_TOGGLE) {
 		QDMenabled = !QDMenabled;
 		QDMSelectEnabled = false;
@@ -894,7 +883,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	{
 		if (!QDMSelectEnabled)
 		{
-			QDMSelectPt = ConvertCoordFromPositionToPixel(AirportPositions[getActiveAirport()]);
+			QDMSelectPt = ConvertCoordFromPositionToPixel(AirportPositions[ActiveAirport]);
 		}
 		QDMSelectEnabled = !QDMSelectEnabled;
 		QDMenabled = false;
@@ -1545,7 +1534,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	switch (uMsg)
 	{
 	case WM_SETCURSOR:
-		SetCursor(smrCursor);
+		SetCursor(cursor);
 		return true;
 	default:
 		return CallWindowProc(gSourceProc, hwnd, uMsg, wParam, lParam);
@@ -1558,23 +1547,18 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	// Changing the mouse cursor
 	if (initCursor)
 	{
-		if (customCursor) {
-			smrCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCURSOR), IMAGE_CURSOR, 0, 0, LR_SHARED));
-			// This got broken because of threading as far as I can tell
-			// The cursor does change for some milliseconds but gets reset almost instantly by external MFC code
-
+		if (useCustomCursor) {
+			mouseCursor = smrCursor;
 		}
 		else {
-			smrCursor = (HCURSOR)::LoadCursor(NULL, IDC_ARROW);
+			mouseCursor = defaultCursor;
 		}
-
-		if (smrCursor != nullptr)
-		{		
-			pluginWindow = GetActiveWindow();
-			gSourceProc = (WNDPROC)SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)WindowProc);
-		}
+		SMRSetCursor(mouseCursor);
+		ASSERT(cursor != nullptr);
+		pluginWindow = GetActiveWindow();
+		gSourceProc = (WNDPROC)SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)WindowProc);
 		initCursor = false;
-	}
+	}	
 
 	if (Phase == REFRESH_PHASE_AFTER_LISTS) {
 		Logger::info("Phase == REFRESH_PHASE_AFTER_LISTS");
@@ -1685,7 +1669,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		rwy.IsValid();
 		rwy = GetPlugIn()->SectorFileElementSelectNext(rwy, SECTOR_ELEMENT_RUNWAY))
 	{
-		if (startsWith(getActiveAirport().c_str(), rwy.GetAirportName())) {
+		if (startsWith(ActiveAirport.c_str(), rwy.GetAirportName())) {
 
 			CPosition Left;
 			rwy.GetPosition(&Left, 1);
@@ -1698,11 +1682,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			double bearing1 = TrueBearing(Left, Right);
 			double bearing2 = TrueBearing(Right, Left);
 
-			const Value& CustomMap = CurrentConfig->getAirportMapIfAny(getActiveAirport());
+			const Value& CustomMap = CurrentConfig->getAirportMapIfAny(ActiveAirport);
 
 			vector<CPosition> def;
 
-			if (CurrentConfig->isCustomRunwayAvail(getActiveAirport(), runway_name, runway_name2)) {
+			if (CurrentConfig->isCustomRunwayAvail(ActiveAirport, runway_name, runway_name2)) {
 				const Value& Runways = CustomMap["runways"];
 
 				if (Runways.IsArray()) {
@@ -1741,7 +1725,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 					CPen RedPen(PS_SOLID, 2, RGB(150, 0, 0));
 					CPen * oldPen = dc.SelectObject(&RedPen);
 
-					if (CurrentConfig->isCustomRunwayAvail(getActiveAirport(), runway_name, runway_name2)) {
+					if (CurrentConfig->isCustomRunwayAvail(ActiveAirport, runway_name, runway_name2)) {
 						const Value& Runways = CustomMap["runways"];
 
 						if (Runways.IsArray()) {
@@ -2059,9 +2043,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagTypes TagType = TagTypes::Departure;		
 		TagTypes ColorTagType = TagTypes::Departure;
 
-		if (fp.IsValid() && strcmp(fp.GetFlightPlanData().GetDestination(), getActiveAirport().c_str()) == 0) {
+		if (fp.IsValid() && strcmp(fp.GetFlightPlanData().GetDestination(), ActiveAirport.c_str()) == 0) {
 			// Circuit aircraft are treated as departures; not arrivals
-			if (strcmp(fp.GetFlightPlanData().GetOrigin(), getActiveAirport().c_str()) != 0) {
+			if (strcmp(fp.GetFlightPlanData().GetOrigin(), ActiveAirport.c_str()) != 0) {
 				TagType = TagTypes::Arrival;
 				ColorTagType = TagTypes::Arrival;
 			}
@@ -2083,7 +2067,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			ColorTagType = TagTypes::Uncorrelated;
 		}
 
-		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool(), getActiveAirport());
+		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool(), ActiveAirport);
 
 		// ----- Generating the clickable map -----
 		map<string, int> TagClickableMap;
@@ -2198,8 +2182,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]);
 		if (ColorTagType == TagTypes::Departure) {
-			if (!TagReplacingMap["asid"].empty() && CurrentConfig->isSidColorAvail(TagReplacingMap["asid"], getActiveAirport())) {
-				definedBackgroundColor = CurrentConfig->getSidColor(TagReplacingMap["asid"], getActiveAirport());
+			if (!TagReplacingMap["asid"].empty() && CurrentConfig->isSidColorAvail(TagReplacingMap["asid"], ActiveAirport)) {
+				definedBackgroundColor = CurrentConfig->getSidColor(TagReplacingMap["asid"], ActiveAirport);
 			}
 
 			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagReplacingMap["asid"].empty() && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nosid_color")) {
@@ -2432,11 +2416,15 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			dc.LineTo(arcLineX, arcLineY);
 			
 			auto textSize = dc.GetTextExtent(aircraft.callsign.c_str());
-			long arcTextX = arcLineX - sinAngle*textSize.cx*0.7;
-			long arcTextY = arcLineY + cosAngle*textSize.cy*0.5 - 6;
+			long arcTextX = arcLineX - sinAngle*textSize.cx*0.8;
+			long arcTextY = arcLineY + cosAngle*textSize.cy*0.6 - 10;
 			dc.SetTextColor(aircraft.colors.second);
 			dc.SetTextAlign(TA_CENTER);
-			dc.TextOutA(arcTextX, arcTextY, aircraft.callsign.c_str());
+			dc.TextOutA(arcTextX, arcTextY-6, aircraft.callsign.c_str());
+
+			char distanceString[8];
+			sprintf_s(distanceString, "%.1f", aircraft.distance);
+			dc.TextOutA(arcTextX, arcTextY+6, distanceString);
 
 			outerRect.DeflateRect(4, 4);
 
@@ -2664,8 +2652,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		CPen Pen(PS_SOLID, 1, RGB(255, 255, 255));
 		CPen *oldPen = dc.SelectObject(&Pen);
 
-		POINT AirportPos = ConvertCoordFromPositionToPixel(AirportPositions[getActiveAirport()]);
-		CPosition AirportCPos = AirportPositions[getActiveAirport()];
+		POINT AirportPos = ConvertCoordFromPositionToPixel(AirportPositions[ActiveAirport]);
+		CPosition AirportCPos = AirportPositions[ActiveAirport];
 		if (QDMSelectEnabled)
 		{
 			AirportPos = QDMSelectPt;
@@ -2783,10 +2771,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	COLORREF oldTextColor = dc.SetTextColor(RGB(0, 0, 0));
 
 	int offset = 2;
-	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, getActiveAirport().c_str());
-	AddScreenObject(RIMCAS_ACTIVE_AIRPORT, "ActiveAirport", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent(getActiveAirport().c_str()).cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent(getActiveAirport().c_str()).cy }, false, "Active Airport");
+	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ActiveAirport.c_str());
+	AddScreenObject(RIMCAS_ACTIVE_AIRPORT, "ActiveAirport", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent(ActiveAirport.c_str()).cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent(ActiveAirport.c_str()).cy }, false, "Active Airport");
 
-	offset += dc.GetTextExtent(getActiveAirport().c_str()).cx + 10;
+	offset += dc.GetTextExtent(ActiveAirport.c_str()).cx + 10;
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "Display");
 	AddScreenObject(RIMCAS_MENU, "DisplayMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("Display").cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent("Display").cy }, false, "Display menu");
 
@@ -2953,7 +2941,7 @@ void CSMRRadar::EuroScopePlugInExitCustom()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState())
 
-		if (smrCursor != nullptr && smrCursor != NULL)
+		if (cursor != nullptr && cursor != NULL)
 		{
 			SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
 		}
