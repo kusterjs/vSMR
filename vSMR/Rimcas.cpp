@@ -10,19 +10,21 @@ CRimcas::~CRimcas()
 	Reset();
 }
 
-void CRimcas::Reset() {
+void CRimcas::Reset()
+{
 	Logger::info(string(__FUNCSIG__));
-	RunwayAreas.clear();
+	Runways.clear();
 	AcColor.clear();
 	AcOnRunway.clear();
 	//TimeTable.clear();
 	IAWQueue.clear();
-	MonitoredRunwayArr.clear();
-	MonitoredRunwayDep.clear();
+	//MonitoredRunwayArr.clear();
+	//MonitoredRunwayDep.clear();
 	ApproachingAircrafts.clear();
 }
 
-void CRimcas::OnRefreshBegin(bool isLVP) {
+void CRimcas::OnRefreshBegin(bool isLVP)
+{
 	Logger::info(string(__FUNCSIG__));
 	AcColor.clear();
 	AcOnRunway.clear();
@@ -32,66 +34,67 @@ void CRimcas::OnRefreshBegin(bool isLVP) {
 	this->IsLVP = isLVP;
 }
 
-void CRimcas::OnRefresh(CRadarTarget Rt, CRadarScreen *instance, bool isCorrelated) {
+void CRimcas::OnRefresh(CRadarTarget Rt, CRadarScreen *instance, bool isCorrelated)
+{
 	Logger::info(string(__FUNCSIG__));
 	GetAcInRunwayArea(Rt, instance);
 	//GetAcInRunwayAreaSoon(Rt, instance, isCorrelated);
 	GetAcInRunwayAreaSoonDistance(Rt, instance);
 }
 
-void CRimcas::AddRunwayArea(CRadarScreen *instance, string runway_name1, string runway_name2, vector<CPosition> Definition) {
+/*
+void CRimcas::AddRunwayArea(CRadarScreen *instance, string Name, vector<CPosition> Definition) {
 	Logger::info(string(__FUNCSIG__));
-	string Name = runway_name1 + "/" + runway_name2;
-	
+	//string Name = runway_name1 + "/" + runway_name2;
+
 	RunwayAreaType Runway;
 	Runway.Name = Name;
 	Runway.Definition = Definition;
 
 	RunwayAreas[Name] = Runway;
-}
+}*/
 
-string CRimcas::GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance) {
+void CRimcas::GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance)
+{
 	Logger::info(string(__FUNCSIG__));
 	int AltitudeDif = Ac.GetPosition().GetFlightLevel() - Ac.GetPreviousPosition(Ac.GetPosition()).GetFlightLevel();
 	if (!Ac.GetPosition().GetTransponderC())
 		AltitudeDif = 0;
 
 	if (Ac.GetGS() > 160 || AltitudeDif > 200)
-		return string_false;
+		return;
 
 	POINT AcPosPix = instance->ConvertCoordFromPositionToPixel(Ac.GetPosition().GetPosition());
 
-	for (std::map<string, RunwayAreaType>::iterator it = RunwayAreas.begin(); it != RunwayAreas.end(); ++it)
-	{
-		if (!MonitoredRunwayDep[string(it->first)])
+	for (const auto &rwy : Runways) {
+		if (!rwy.monitor_dep && !rwy.monitor_arr)
 			continue;
 
 		vector<POINT> RunwayOnScreen;
-
-		for (auto &Point : it->second.Definition)
-		{
+		for (const auto &Point : rwy.rimcas_path) {
 			RunwayOnScreen.push_back(instance->ConvertCoordFromPositionToPixel(Point));
 		}
-	
+
 		if (Is_Inside(AcPosPix, RunwayOnScreen)) {
-			AcOnRunway.insert(std::pair<string, string>(it->first, Ac.GetCallsign()));
+			AcOnRunway.insert(std::pair<string, string>(rwy.name, Ac.GetCallsign()));
 			IAWQueueColors.erase(Ac.GetCallsign());
-			return string(it->first);
+			return;
 		}
 	}
 
-	return string_false;
+	return;
 }
 
+/*
 string CRimcas::_GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated) {
 	Logger::info(string(__FUNCSIG__));
 	int AltitudeDif = Ac.GetPosition().GetFlightLevel() - Ac.GetPreviousPosition(Ac.GetPosition()).GetFlightLevel();
 	if (!Ac.GetPosition().GetTransponderC())
 		AltitudeDif = 0;
-	
+
 	// Making sure the AC is airborne and not climbing, but below transition
-	if (Ac.GetGS() < 50 || 
-		AltitudeDif > 50 || 
+	if (Ac.GetGS() < 50 ||
+		AltitudeDif > 50 ||
 		Ac.GetPosition().GetPressureAltitude() > instance->GetPlugIn()->GetTransitionAltitude())
 		return string_false;
 
@@ -126,7 +129,7 @@ string CRimcas::_GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, 
 			// And 3 degrees after (<= 120 t)
 
 			bool isGoingToLand = false;
-			int AngleMin = -2; 
+			int AngleMin = -2;
 			int AngleMax = 2;
 			if (t <= 120)
 			{
@@ -193,8 +196,10 @@ string CRimcas::_GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, 
 
 	return CRimcas::string_false;
 }
+*/
 
-void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen *instance) {
+void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen *instance)
+{
 	Logger::info(string(__FUNCSIG__));
 	int AltitudeDif = aircraft.GetPosition().GetFlightLevel() - aircraft.GetPreviousPosition(aircraft.GetPosition()).GetFlightLevel();
 	if (!aircraft.GetPosition().GetTransponderC())
@@ -211,9 +216,8 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 		return;
 
 	POINT AcPosPix = instance->ConvertCoordFromPositionToPixel(aircraft.GetPosition().GetPosition());
-	for (std::map<string, RunwayAreaType>::iterator it = RunwayAreas.begin(); it != RunwayAreas.end(); ++it)
-	{
-		if (!MonitoredRunwayArr[it->first])
+	for (const auto &rwy : Runways) {
+		if (!rwy.monitor_arr)
 			continue;
 
 		string callsign = aircraft.GetCallsign();
@@ -222,8 +226,7 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 		vector<POINT> RunwayOnScreen;
 		double directionToThreshold;
 		double distanceToThreshold = 20.0; // We only care about planes closer to the runway than 15NM so we can default to this value even if the plane is further out since it won't be included in the final list.
-		for (auto &Point : it->second.Definition)
-		{
+		for (const auto &Point : rwy.path) {
 			RunwayOnScreen.push_back(instance->ConvertCoordFromPositionToPixel(Point));
 			double distanceToRunwayPoint = aircraft.GetPosition().GetPosition().DistanceTo(Point);
 			if (distanceToRunwayPoint < distanceToThreshold) {
@@ -254,8 +257,7 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 		// Check if the plane is heading for the runway (dot product between plane direction vector and plane-threshold vector)
 		double planeDirection = aircraft.GetPosition().GetReportedHeading();
 		// We check if the plane's heading matches the runway direction, we give (more or less) +/-2° at 20NM and +/-3° at 10NM
-		if (abs(planeDirection - directionToThreshold) < (400.0 / (distanceToThreshold*distanceToThreshold + 50.0)))
-		{			
+		if (abs(planeDirection - directionToThreshold) < (400.0 / (distanceToThreshold*distanceToThreshold + 50.0))) {
 			// The aircraft is going to be on the runway, add it to the AIW if it's not already present
 			double timeToThreshold = (distanceToThreshold / aircraft.GetPosition().GetReportedGS()) * 3600; // NM / knot = 1h 
 			if (timeToThreshold < 180.0) {
@@ -284,8 +286,8 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 				aircraftData.time = timeToThreshold;
 				aircraftData.distance = distanceToThreshold;
 				aircraftData.colors = IAWQueueColors[callsign];
-				
-				IAWQueue[it->first].insert(aircraftData);
+
+				IAWQueue[rwy.name].insert(aircraftData);
 
 				// If the AC is xx seconds away from the runway, we consider him on it
 				int StageTwoTrigger = 20;
@@ -293,11 +295,11 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 					StageTwoTrigger = 30;
 
 				if (timeToThreshold <= StageTwoTrigger)
-					AcOnRunway.insert(std::pair<string, string>(it->first, callsign));
+					AcOnRunway.insert(std::pair<string, string>(rwy.name, callsign));
 
 				// If the AC is 45 seconds away from the runway, we consider him approaching
 				if (timeToThreshold > StageTwoTrigger && timeToThreshold <= 45)
-					ApproachingAircrafts.insert(std::pair<string, string>(it->first, callsign));
+					ApproachingAircrafts.insert(std::pair<string, string>(rwy.name, callsign));
 
 			}
 			return;
@@ -305,10 +307,11 @@ void CRimcas::GetAcInRunwayAreaSoonDistance(CRadarTarget aircraft, CRadarScreen 
 	}
 }
 
-vector<CPosition> CRimcas::GetRunwayArea(CPosition Left, CPosition Right, float hwidth) {
+vector<CPosition> CRimcas::GetRunwayArea(CPosition Left, CPosition Right, float hwidth)
+{
 	Logger::info(string(__FUNCSIG__));
 	vector<CPosition> out;
-	
+
 	double RunwayBearing = RadToDeg(TrueBearing(Left, Right));
 
 	out.push_back(BetterHarversine(Left, fmod(RunwayBearing + 90, 360), hwidth)); // Bottom Left
@@ -319,50 +322,40 @@ vector<CPosition> CRimcas::GetRunwayArea(CPosition Left, CPosition Right, float 
 	return out;
 }
 
-void CRimcas::OnRefreshEnd(CRadarScreen *instance, int threshold) {
+void CRimcas::OnRefreshEnd(CRadarScreen *instance, int threshold)
+{
 	Logger::info(string(__FUNCSIG__));
-	for (map<string, RunwayAreaType>::iterator it = RunwayAreas.begin(); it != RunwayAreas.end(); ++it)
-	{
-
-		if (!MonitoredRunwayArr[string(it->first)] && !MonitoredRunwayDep[string(it->first)])
+	for (const auto &rwy : Runways) {
+		if (!rwy.monitor_arr && !rwy.monitor_dep)
 			continue;
 
-		bool isOnClosedRunway = false;
-		if (ClosedRunway.find(it->first) != ClosedRunway.end()) {
-			if (ClosedRunway[it->first])
-				isOnClosedRunway = true;
-		}
+		bool isOnClosedRunway = rwy.closed;	// @TODO I'm very confused about this
+		bool isAnotherAcApproaching = ApproachingAircrafts.count(rwy.name) > 0;
 
-		bool isAnotherAcApproaching = ApproachingAircrafts.count(it->first) > 0;
+		if (AcOnRunway.count(rwy.name) > 1 || isOnClosedRunway || isAnotherAcApproaching) {
 
-		if (AcOnRunway.count(it->first) > 1 || isOnClosedRunway || isAnotherAcApproaching) {
+			auto AcOnRunwayRange = AcOnRunway.equal_range(rwy.name);
 
-			auto AcOnRunwayRange = AcOnRunway.equal_range(it->first);
-
-			for (map<string, string>::iterator it2 = AcOnRunwayRange.first; it2 != AcOnRunwayRange.second; ++it2)
-			{
+			for (map<string, string>::iterator it2 = AcOnRunwayRange.first; it2 != AcOnRunwayRange.second; ++it2) {
 				if (isOnClosedRunway) {
 					AcColor[it2->second] = StageTwo;
-				} else
-				{
-					if (instance->GetPlugIn()->RadarTargetSelect(it2->second.c_str()).GetGS() > threshold)
-					{
+				}
+				else {
+					if (instance->GetPlugIn()->RadarTargetSelect(it2->second.c_str()).GetGS() > threshold) {
 						// If the aircraft is on the runway and stage two, we check if 
 						// the aircraft is going towards any aircraft thats on the runway
 						// if not, we don't display the warning
 						bool triggerStageTwo = false;
 						CRadarTarget rd1 = instance->GetPlugIn()->RadarTargetSelect(it2->second.c_str());
 						CRadarTargetPositionData currentRd1 = rd1.GetPosition();
-						for (map<string, string>::iterator it3 = AcOnRunwayRange.first; it3 != AcOnRunwayRange.second; ++it3)
-						{
+						for (map<string, string>::iterator it3 = AcOnRunwayRange.first; it3 != AcOnRunwayRange.second; ++it3) {
 							CRadarTarget rd2 = instance->GetPlugIn()->RadarTargetSelect(it3->second.c_str());
 
 							double currentDist = currentRd1.GetPosition().DistanceTo(rd2.GetPosition().GetPosition());
 							double oldDist = rd1.GetPreviousPosition(currentRd1).GetPosition()
 								.DistanceTo(rd2.GetPreviousPosition(rd2.GetPosition()).GetPosition());
 
-							if (currentDist < oldDist)
-							{
+							if (currentDist < oldDist) {
 								triggerStageTwo = true;
 								break;
 							}
@@ -370,19 +363,18 @@ void CRimcas::OnRefreshEnd(CRadarScreen *instance, int threshold) {
 
 						if (triggerStageTwo)
 							AcColor[it2->second] = StageTwo;
-					} else
-					{
+					}
+					else {
 						AcColor[it2->second] = StageOne;
 					}
 				}
 			}
 
-			for (auto &ac : ApproachingAircrafts)
-			{
-				if (ac.first == it->first && AcOnRunway.count(it->first) > 1)
+			for (const auto &ac : ApproachingAircrafts) {
+				if (ac.first == rwy.name && AcOnRunway.count(rwy.name) > 1)
 					AcColor[ac.second] = StageOne;
 
-				if (ac.first == it->first && isOnClosedRunway)
+				if (ac.first == rwy.name && isOnClosedRunway)
 					AcColor[ac.second] = StageTwo;
 			}
 		}
@@ -391,10 +383,10 @@ void CRimcas::OnRefreshEnd(CRadarScreen *instance, int threshold) {
 
 }
 
-bool CRimcas::isAcOnRunway(string callsign) {
+bool CRimcas::isAcOnRunway(string callsign)
+{
 	Logger::info(string(__FUNCSIG__));
-	for (std::map<string, string>::iterator it = AcOnRunway.begin(); it != AcOnRunway.end(); ++it)
-	{
+	for (std::map<string, string>::iterator it = AcOnRunway.begin(); it != AcOnRunway.end(); ++it) {
 		if (it->second == callsign)
 			return true;
 	}
@@ -411,7 +403,8 @@ CRimcas::RimcasAlertTypes CRimcas::getAlert(string callsign)
 	return AcColor[callsign];
 }
 
-Color CRimcas::GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo) {
+Color CRimcas::GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo)
+{
 	Logger::info(string(__FUNCSIG__));
 	if (AcColor.find(AcCallsign) == AcColor.end()) {
 		if (isAcOnRunway(AcCallsign)) {
@@ -431,7 +424,8 @@ Color CRimcas::GetAircraftColor(string AcCallsign, Color StandardColor, Color On
 	}
 }
 
-Color CRimcas::GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor) {
+Color CRimcas::GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor)
+{
 	Logger::info(string(__FUNCSIG__));
 	if (isAcOnRunway(AcCallsign)) {
 		return OnRunwayColor;

@@ -24,15 +24,13 @@ using namespace Gdiplus;
 using namespace EuroScopePlugIn;
 
 
-namespace SMRSharedData
-{
+namespace SMRSharedData {
 	static vector<string> ReleasedTracks;
 	static vector<string> ManuallyCorrelated;
 };
 
 
-namespace SMRPluginSharedData
-{
+namespace SMRPluginSharedData {
 	static asio::io_service io_service;
 }
 
@@ -51,7 +49,7 @@ public:
 
 	map<string, POINT> TagsOffsets;
 
-	vector<string> Active_Arrivals;
+	//vector<string> Active_Arrivals;
 
 	clock_t clock_init, clock_final;
 
@@ -60,12 +58,14 @@ public:
 	COLORREF SMR_H2_COLOR = RGB(0, 219, 219);
 	COLORREF SMR_H3_COLOR = RGB(0, 183, 183);
 
-	typedef struct tagPOINT2 {
+	typedef struct tagPOINT2
+	{
 		double x;
 		double y;
 	} POINT2;
 
-	struct Patatoide_Points {
+	struct Patatoide_Points
+	{
 		map<int, POINT2> points;
 		map<int, POINT2> History_one_points;
 		map<int, POINT2> History_two_points;
@@ -97,7 +97,6 @@ public:
 	POINT QDMmousePt;
 
 	bool ColorSettingsDay = true;
-
 	bool isLVP = false;
 
 	map<string, RECT> TimePopupAreas;
@@ -106,7 +105,7 @@ public:
 	multimap<string, string> AcOnRunway;
 	map<string, bool> ColorAC;
 
-	map<string, CRimcas::RunwayAreaType> RunwayAreas;
+	//map<string, CRimcas::RunwayAreaType> RunwayAreas;
 
 	map<string, RECT> MenuPositions;
 	map<string, bool> DisplayMenu;
@@ -162,41 +161,32 @@ public:
 
 	inline virtual bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
 	{
-
-		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool())
-		{
-			if (fp.IsValid())
-			{
+		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool()) {
+			if (fp.IsValid()) {
 				bool isCorr = false;
-				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0)
-				{
+				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0) {
 					isCorr = true;
 				}
 
-				if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool())
-				{
+				if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool()) {
 					isCorr = true;
 				}
 
-				if (isCorr)
-				{
+				if (isCorr) {
 					const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
 					for (SizeType i = 0; i < sqs.Size(); i++) {
-						if (strcmp(rt.GetPosition().GetSquawk(), sqs[i].GetString()) == 0)
-						{
+						if (strcmp(rt.GetPosition().GetSquawk(), sqs[i].GetString()) == 0) {
 							isCorr = false;
 							break;
 						}
 					}
 				}
 
-				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end())
-				{
+				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end()) {
 					isCorr = true;
 				}
 
-				if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-				{
+				if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end()) {
 					isCorr = false;
 				}
 
@@ -204,8 +194,8 @@ public:
 			}
 
 			return false;
-		} else
-		{
+		}
+		else {
 			// If the pro mode is not used, then the AC is always correlated
 			return true;
 		}
@@ -213,56 +203,22 @@ public:
 
 	void SMRSetCursor(HCURSOR targetCursor);
 
-	//---CorrelateCursor--------------------------------------------
-
 	virtual void CorrelateCursor();
-
-	//---LoadCustomFont--------------------------------------------
-
 	virtual void LoadCustomFont();
-
-	//---LoadProfile--------------------------------------------
-
 	virtual void LoadProfile(string profileName);
 
-	//---OnAsrContentLoaded--------------------------------------------
-
 	virtual void OnAsrContentLoaded(bool Loaded);
-
-	//---OnAsrContentToBeSaved------------------------------------------
-
 	virtual void OnAsrContentToBeSaved();
-
-	//---OnRefresh------------------------------------------------------
 
 	virtual void OnRefresh(HDC hDC, int Phase);
 
-	//---OnClickScreenObject-----------------------------------------
-
 	virtual void OnClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button);
-
-	//---OnMoveScreenObject---------------------------------------------
-
 	virtual void OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, bool Released);
-
-	//---OnOverScreenObject---------------------------------------------
-
 	virtual void OnOverScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area);
 
-	//---OnCompileCommand-----------------------------------------
-
 	virtual bool OnCompileCommand(const char * sCommandLine);
-
-	//---RefreshAirportActivity---------------------------------------------
-
-	virtual void RefreshAirportActivity(void);
-
-	//---OnRadarTargetPositionUpdate---------------------------------------------
-
+	
 	virtual void OnRadarTargetPositionUpdate(CRadarTarget RadarTarget);
-
-	//---OnFlightPlanDisconnect---------------------------------------------
-
 	virtual void OnFlightPlanDisconnect(CFlightPlan FlightPlan);
 
 	virtual bool isVisible(CRadarTarget rt)
@@ -293,7 +249,8 @@ public:
 	// Heading in deg, distance in m
 	const double PI = (double)M_PI;
 
-	inline virtual CPosition Haversine(CPosition origin, double heading, double distance) {
+	inline virtual CPosition Haversine(CPosition origin, double heading, double distance)
+	{
 
 		CPosition newPos;
 
@@ -311,7 +268,8 @@ public:
 		return newPos;
 	}
 
-	inline virtual float randomizeHeading(float originHead) {
+	inline virtual float randomizeHeading(float originHead)
+	{
 		return float(fmod(originHead + float((rand() % 5) - 2), 360));
 	}
 
@@ -345,6 +303,8 @@ public:
 		}
 		return p;
 	}*/
+
+	void ReloadActiveRunways();
 
 	//---OnFunctionCall-------------------------------------------------
 

@@ -29,31 +29,16 @@ public:
 	CSMRPlugin();
 	virtual ~CSMRPlugin();
 
-	//---OnCompileCommand------------------------------------------
-
 	virtual bool OnCompileCommand(const char * sCommandLine);
-
-	//---OnFunctionCall------------------------------------------
-
 	virtual void OnFunctionCall(int FunctionId, const char * sItemString, POINT Pt, RECT Area);
-
-	//---OnGetTagItem------------------------------------------
 
 	virtual void OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int * pColorCode, COLORREF * pRGB, double * pFontSize);
 
-	//---OnControllerDisconnect------------------------------------------
-
+	virtual void OnAirportRunwayActivityChanged(void);
 	virtual void OnControllerDisconnect(CController Controller);
-
-	//---OnFlightPlanDisconnect------------------------------------------
-
 	virtual void OnFlightPlanDisconnect(CFlightPlan FlightPlan);
 
-	//---OnTimer------------------------------------------
-
 	virtual void OnTimer(int Counter);
-
-	//---OnRadarScreenCreated------------------------------------------
 
 	virtual CRadarScreen * OnRadarScreenCreated(const char * sDisplayName, bool NeedRadarContent, bool GeoReferenced, bool CanBeSaved, bool CanBeCreated);
 };

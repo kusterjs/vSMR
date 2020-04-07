@@ -26,10 +26,29 @@ public:
 
 	const string string_false = "!NO";
 
-	struct RunwayAreaType {
+	/*struct RunwayAreaType {
 		string Name = "";
 		vector<CPosition> Definition;
 		bool set = false;
+	};*/
+
+
+	/*struct RunwaySide
+	{
+		string number;
+		bool monitor_dep;
+		bool monitor_arr;
+	};*/
+
+	struct Runway {		
+		string name;
+		//string names[2];
+		bool closed = false;
+		bool monitor_dep;
+		bool monitor_arr;
+		vector<CPosition> path;
+		vector<CPosition> rimcas_path;
+		vector<CPosition> lvp_path;		
 	};
 
 	struct IAW_Aircraft {
@@ -55,9 +74,13 @@ public:
 	COLORREF WarningColor = RGB(160, 90, 30); //RGB(180, 100, 50)
 	COLORREF AlertColor = RGB(150, 0, 0);
 
-	enum RimcasAlertTypes { NoAlert, StageOne, StageTwo };
+	enum RimcasAlertTypes { 
+		NoAlert, 
+		StageOne, 
+		StageTwo 
+	};
 
-	map<string, RunwayAreaType> RunwayAreas;
+	//map<string, RunwayAreaType> RunwayAreas;
 	multimap<string, string> AcOnRunway;
 	vector<int> CountdownDefinition;
 	vector<int> CountdownDefinitionLVP;
@@ -65,8 +88,9 @@ public:
 	map<string, map<int, string>> _TimeTable;
 	map<string, set<IAW_Aircraft>> IAWQueue;
 	map<string, pair<COLORREF, COLORREF>> IAWQueueColors; // maps callsign to IAW color, I don't have any better idea so far...
-	map<string, bool> MonitoredRunwayDep;
-	map<string, bool> MonitoredRunwayArr;
+	vector<Runway> Runways;
+	//map<string, bool> MonitoredRunwayDep;
+	//map<string, bool> MonitoredRunwayArr;
 	map<string, RimcasAlertTypes> AcColor;
 
 	bool IsLVP = false;
@@ -132,10 +156,10 @@ public:
 		return (winding_number != 0);
 	}
 
-	string GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance);
-	string _GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated);
+	void GetAcInRunwayArea(CRadarTarget Ac, CRadarScreen *instance);
+	//string _GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated);
 	void GetAcInRunwayAreaSoonDistance(CRadarTarget Ac, CRadarScreen *instance);
-	void AddRunwayArea(CRadarScreen *instance, string runway_name1, string runway_name2, vector<CPosition> Definition);
+	//void AddRunwayArea(CRadarScreen *instance, string Name, vector<CPosition> Definition);
 	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo);
 	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor);
 
@@ -159,26 +183,32 @@ public:
 		std::sort(CountdownDefinitionLVP.begin(), CountdownDefinitionLVP.end(), std::greater<int>());
 	}
 
-	void toggleClosedRunway(string runway) {
-		if (ClosedRunway.find(runway) == ClosedRunway.end())
-			ClosedRunway[runway] = true;
-		else
-			ClosedRunway[runway] = !ClosedRunway[runway];
+	void ToggleClosedRunway(string name) {
+		for (auto &runway : Runways) {
+			if (runway.name == name) {
+				runway.closed = !runway.closed;
+				return;
+			}
+		}
 	}
 
-	void toggleMonitoredRunwayDep(string runway) {
-		if (MonitoredRunwayDep.find(runway) == MonitoredRunwayDep.end())
-			MonitoredRunwayDep[runway] = true;
-		else
-			MonitoredRunwayDep[runway] = !MonitoredRunwayDep[runway];
+	void ToggleMonitoredRunwayDep(string name) {
+		for (auto &runway : Runways) {
+			if (runway.name == name) {
+				runway.monitor_dep = !runway.monitor_dep;
+				return;
+			}
+		}
 	}
 
-	void toggleMonitoredRunwayArr(string runway) {
-		if (MonitoredRunwayArr.find(runway) == MonitoredRunwayArr.end())
-			MonitoredRunwayArr[runway] = true;
-		else
-			MonitoredRunwayArr[runway] = !MonitoredRunwayArr[runway];
+	void ToggleMonitoredRunwayArr(string name) {
+		for (auto &runway : Runways) {
+			if (runway.name == name) {
+				runway.monitor_arr = !runway.monitor_arr;
+				return;
+			}
+		}
 	}
 
-	map<string, bool> ClosedRunway;
+	//map<string, bool> ClosedRunway;
 };

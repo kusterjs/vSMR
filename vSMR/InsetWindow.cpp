@@ -255,7 +255,6 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					CPosition tickBottom = BetterHarversine(tickPosition, fmod(reverseHeading - 90, 360), 500);
 					CPosition tickTop = BetterHarversine(tickPosition, fmod(reverseHeading + 90, 360), 500);
 
-
 					Pt1 = projectPoint(tickBottom);
 					Pt2 = projectPoint(tickTop);
 

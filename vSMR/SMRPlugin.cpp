@@ -16,7 +16,8 @@ bool BLINK = false;
 
 bool PlaySoundClr = false;
 
-struct DatalinkPacket {
+struct DatalinkPacket
+{
 	string callsign;
 	string destination;
 	string sid;
@@ -33,7 +34,8 @@ DatalinkPacket DatalinkToSend;
 
 string baseUrlDatalink = "http://www.hoppie.nl/acars/system/connect.html";
 
-struct AcarsMessage {
+struct AcarsMessage
+{
 	string from;
 	string type;
 	string message;
@@ -68,7 +70,8 @@ char recv_buf[1024];
 
 vector<CSMRRadar*> RadarScreensOpened;
 
-void datalinkLogin(void * arg) {
+void datalinkLogin(void * arg)
+{
 	string raw;
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -84,7 +87,8 @@ void datalinkLogin(void * arg) {
 	}
 };
 
-void sendDatalinkMessage(void * arg) {
+void sendDatalinkMessage(void * arg)
+{
 
 	string raw;
 	string url = baseUrlDatalink;
@@ -117,7 +121,8 @@ void sendDatalinkMessage(void * arg) {
 	}
 };
 
-void pollMessages(void * arg) {
+void pollMessages(void * arg)
+{
 	string raw = "";
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -143,14 +148,12 @@ void pollMessages(void * arg) {
 		stringstream input_stringstream(token);
 		struct AcarsMessage message;
 		int i = 1;
-		while (getline(input_stringstream, parsed, ' '))
-		{
+		while (getline(input_stringstream, parsed, ' ')) {
 			if (i == 1)
 				message.from = parsed;
 			if (i == 2)
 				message.type = parsed;
-			if (i > 2)
-			{
+			if (i > 2) {
 				message.message.append(" ");
 				message.message.append(parsed);
 			}
@@ -178,7 +181,7 @@ void pollMessages(void * arg) {
 					AircraftWilco.push_back(message.from);
 				}
 			}
-			else if (message.message.length() != 0 ){
+			else if (message.message.length() != 0) {
 				AircraftMessage.push_back(message.from);
 			}
 			PendingMessages[message.from] = message;
@@ -190,7 +193,8 @@ void pollMessages(void * arg) {
 
 };
 
-void sendDatalinkClearance(void * arg) {
+void sendDatalinkClearance(void * arg)
+{
 	string raw;
 	string url = baseUrlDatalink;
 	url += "?logon=";
@@ -267,21 +271,17 @@ void vStripsReceiveThread(const asio::error_code &error, size_t bytes_transferre
 	// Processing the data
 	vector<string> data = split(out, ':');
 
-	if (data.front() == string("STAND"))
-	{
+	if (data.front() == string("STAND")) {
 		CSMRRadar::vStripsStands[data.at(1)] = data.back();
 	}
 
-	if (data.front() == string("DELETE"))
-	{
-		if (CSMRRadar::vStripsStands.find(data.back()) != CSMRRadar::vStripsStands.end())
-		{
+	if (data.front() == string("DELETE")) {
+		if (CSMRRadar::vStripsStands.find(data.back()) != CSMRRadar::vStripsStands.end()) {
 			CSMRRadar::vStripsStands.erase(CSMRRadar::vStripsStands.find(data.back()));
 		}
 	}
 
-	if (!error)
-	{
+	if (!error) {
 		_socket->async_receive_from(asio::buffer(recv_buf), receiver_endpoint,
 			std::bind(&vStripsReceiveThread, std::placeholders::_1, std::placeholders::_2));
 	}
@@ -289,16 +289,14 @@ void vStripsReceiveThread(const asio::error_code &error, size_t bytes_transferre
 
 void vStripsThreadFunction(void * arg)
 {
-	try
-	{
+	try {
 		_socket = new asio::ip::udp::socket(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), VSTRIPS_PORT));
 		_socket->async_receive_from(asio::buffer(recv_buf), receiver_endpoint,
 			std::bind(&vStripsReceiveThread, std::placeholders::_1, std::placeholders::_2));
 
 		io_service.run();
 	}
-	catch (std::exception& e)
-	{
+	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
 }
@@ -342,13 +340,11 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 	DllPath.resize(DllPath.size() - strlen("vSMR.dll"));
 	Logger::DLL_PATH = DllPath;
 
-	try
-	{
+	try {
 		//vStripsThread = std::thread();
 		_beginthread(vStripsThreadFunction, 0, NULL);
 	}
-	catch (std::exception& e)
-	{
+	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
 }
@@ -363,20 +359,25 @@ CSMRPlugin::~CSMRPlugin()
 		temp = 1;
 	SaveDataToSettings("cpdlc_sound", "Play sound on clearance request", std::to_string(temp).c_str());
 
-	try
-	{
+	try {
 		io_service.stop();
 		//vStripsThread.join();
 	}
-	catch (std::exception& e)
-	{
+	catch (std::exception& e) {
 		std::cerr << e.what() << std::endl;
 	}
 }
 
-bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
-	if (startsWith(".smr connect", sCommandLine))
-	{
+void CSMRPlugin::OnAirportRunwayActivityChanged()
+{
+	for (const auto &radar : RadarScreensOpened) {
+		radar->ReloadActiveRunways();
+	}
+}
+
+bool CSMRPlugin::OnCompileCommand(const char * sCommandLine)
+{
+	if (startsWith(".smr connect", sCommandLine)) {
 		if (ControllerMyself().IsController()) {
 			if (!HoppieConnected) {
 				_beginthread(datalinkLogin, 0, NULL);
@@ -392,8 +393,7 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 
 		return true;
 	}
-	else if (startsWith(".smr poll", sCommandLine))
-	{
+	else if (startsWith(".smr poll", sCommandLine)) {
 		if (HoppieConnected) {
 			_beginthread(pollMessages, 0, NULL);
 		}
@@ -403,8 +403,7 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 		Logger::ENABLED = !Logger::ENABLED;
 		return true;
 	}
-	else if (startsWith(".smr", sCommandLine))
-	{
+	else if (startsWith(".smr", sCommandLine)) {
 		CCPDLCSettingsDialog dia;
 		dia.m_Logon = logonCallsign.c_str();
 		dia.m_Password = logonCode.c_str();
@@ -428,7 +427,8 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine) {
 	return false;
 }
 
-void CSMRPlugin::OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int * pColorCode, COLORREF * pRGB, double * pFontSize) {
+void CSMRPlugin::OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int * pColorCode, COLORREF * pRGB, double * pFontSize)
+{
 	Logger::info(string(__FUNCSIG__));
 	if (ItemCode == TAG_ITEM_DATALINK_STS) {
 		if (FlightPlan.IsValid()) {
@@ -650,7 +650,8 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 	}
 }
 
-void CSMRPlugin::OnControllerDisconnect(CController Controller) {
+void CSMRPlugin::OnControllerDisconnect(CController Controller)
+{
 	Logger::info(string(__FUNCSIG__));
 	if (Controller.GetFullName() == ControllerMyself().GetFullName() && HoppieConnected == true) {
 		HoppieConnected = false;
@@ -685,8 +686,7 @@ void CSMRPlugin::OnTimer(int Counter)
 		timer = clock();
 	}
 
-	for (auto &ac : AircraftWilco)
-	{
+	for (auto &ac : AircraftWilco) {
 		CRadarTarget RadarTarget = RadarTargetSelect(ac.c_str());
 
 		if (RadarTarget.IsValid()) {
