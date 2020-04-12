@@ -140,18 +140,8 @@ public:
 
 	enum TagTypes { Departure, Arrival, Airborne, Uncorrelated };
 
-
 	string ActiveAirport = "LSZH";
 
-	/*
-	inline string getActiveAirport() {
-		return ActiveAirport;
-	}
-
-	inline string setActiveAirport(string value) {
-		return ActiveAirport = value;
-	}
-	*/
 
 	//---GenerateTagData--------------------------------------------
 
@@ -173,13 +163,18 @@ public:
 				}
 
 				if (isCorr) {
-					const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
+					ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
+					if (strcmp(rt.GetPosition().GetSquawk() - 2, "00") == 0) { // are the last 2 chars of the squawk 00
+						isCorr = false;
+					}
+
+					/*const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
 					for (SizeType i = 0; i < sqs.Size(); i++) {
 						if (strcmp(rt.GetPosition().GetSquawk(), sqs[i].GetString()) == 0) {
 							isCorr = false;
 							break;
 						}
-					}
+					}*/
 				}
 
 				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end()) {
