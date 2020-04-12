@@ -195,20 +195,6 @@ void CSMRRadar::LoadProfile(string profileName)
 	// Loading the new profile
 	CurrentConfig->setActiveProfile(profileName);
 
-	// Loading all the new data
-	const Value &RimcasTimer = CurrentConfig->getActiveProfile()["rimcas"]["timer"];
-	const Value &RimcasTimerLVP = CurrentConfig->getActiveProfile()["rimcas"]["timer_lvp"];
-
-	vector<int> RimcasNorm;
-	for (SizeType i = 0; i < RimcasTimer.Size(); i++) {
-		RimcasNorm.push_back(RimcasTimer[i].GetInt());
-	}
-
-	vector<int> RimcasLVP;
-	for (SizeType i = 0; i < RimcasTimerLVP.Size(); i++) {
-		RimcasLVP.push_back(RimcasTimerLVP[i].GetInt());
-	}
-	RimcasInstance->setCountdownDefinition(RimcasNorm, RimcasLVP);
 	LeaderLineDefaultlenght = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
 
 	// Reloading the fonts

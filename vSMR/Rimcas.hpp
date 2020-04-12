@@ -174,15 +174,6 @@ public:
 
 	RimcasAlertTypes getAlert(string callsign);
 
-	void setCountdownDefinition(vector<int> data, vector<int> dataLVP)
-	{
-		CountdownDefinition = data;
-		std::sort(CountdownDefinition.begin(), CountdownDefinition.end(), std::greater<int>());
-
-		CountdownDefinitionLVP = dataLVP;
-		std::sort(CountdownDefinitionLVP.begin(), CountdownDefinitionLVP.end(), std::greater<int>());
-	}
-
 	void ToggleClosedRunway(string name) {
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
