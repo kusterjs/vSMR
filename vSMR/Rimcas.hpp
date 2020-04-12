@@ -42,8 +42,8 @@ public:
 
 	struct Runway {		
 		string name;
-		//string names[2];
 		bool closed = false;
+		string rwyInUse; // which axis is in use
 		bool monitor_dep;
 		bool monitor_arr;
 		vector<CPosition> path;

@@ -429,6 +429,14 @@ void CSMRRadar::ReloadActiveRunways() {
 				if (smrRunway.name == name) {
 					smrRunway.monitor_dep = rwy.IsElementActive(true, 0) | rwy.IsElementActive(true, 1);
 					smrRunway.monitor_arr = rwy.IsElementActive(false, 0) | rwy.IsElementActive(false, 1);
+
+					if (rwy.IsElementActive(true, 0) | rwy.IsElementActive(false, 0)) {
+						smrRunway.rwyInUse = rwy.GetRunwayName(0);
+					}
+					else if (rwy.IsElementActive(true, 1) | rwy.IsElementActive(false, 1)) {
+						smrRunway.rwyInUse = rwy.GetRunwayName(1);
+					}
+
 					break;
 				}
 			}
@@ -1557,16 +1565,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			// Creating the gdi+ graphics
 			Graphics graphics(hDC);
 			graphics.SetPageUnit(Gdiplus::UnitPixel);
-
 			graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
-			SolidBrush AlphaBrush(Color(CurrentConfig->getActiveProfile()["filters"]["night_alpha_setting"].GetInt(), 0, 0, 0));
+			SolidBrush AlphaBrush(Color(CurrentConfig->getActiveProfile()["filters"]["night_alpha_setting"].GetInt(), 0, 0, 0));			
 
-			CRect RadarArea(GetRadarArea());
-			RadarArea.top = RadarArea.top - 1;
-			RadarArea.bottom = GetChatArea().bottom;
-
-			graphics.FillRectangle(&AlphaBrush, CopyRect(CRect(RadarArea)));
+			CRect FullScreenArea(GetRadarArea());
+			FullScreenArea.top = FullScreenArea.top - 1;
+			FullScreenArea.bottom = GetChatArea().bottom;
+			graphics.FillRectangle(&AlphaBrush, CopyRect(FullScreenArea));
 
 			graphics.ReleaseHDC(hDC);
 		}
@@ -1620,10 +1626,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	CDC dc;
 	dc.Attach(hDC);
 
+	// Set a clipping region to not draw over the chatbox
+    ExcludeClipRect(dc, GetChatArea().left, GetChatArea().top, GetChatArea().right, GetChatArea().bottom);
+
 	// Creating the gdi+ graphics
 	Graphics graphics(hDC);
 	graphics.SetPageUnit(Gdiplus::UnitPixel);
-
 	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
 	AirportPositions.clear();
@@ -1652,7 +1660,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			CPen RedPen(PS_SOLID, 2, RGB(150, 0, 0));
 			CPen * oldPen = dc.SelectObject(&RedPen);
 
-			PointF lpPoints[2048];
+			PointF lpPoints[128];
 			int w = 0;
 			for (auto &Point : runway.path) {
 				POINT toDraw = ConvertCoordFromPositionToPixel(Point);
@@ -2210,8 +2218,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				heightOffset += oneLineHeight;
 			}
 		}
-
-
 	}
 
 #pragma endregion Drawing of the tags
@@ -2236,7 +2242,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		POINT center = baseRect.CenterPoint();
 
 		// Drawing the runway name
-		string tempS = (rwy.name).substr(0, 2);
+		string tempS = rwy.rwyInUse;
+		dc.SetTextColor(RGB(255,255,255));
 		dc.TextOutA(center.x - dc.GetTextExtent(tempS.c_str()).cx / 2, center.y - dc.GetTextExtent(tempS.c_str()).cy / 2, tempS.c_str());
 
 		// Drawing arcs
@@ -2310,66 +2317,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		AddScreenObject(RIMCAS_IAW, rwy.name.c_str(), baseRect, true, "");
 	}
 
-	RestoreDC(dc, oldDC);
-
-	/*
-	CBrush BrushGrey(RGB(150, 150, 150));
-	COLORREF oldColor = dc.SetTextColor(RGB(33, 33, 33));
-
-	int TextHeight = dc.GetTextExtent("60").cy;
-	Logger::info("RIMCAS Loop");
-	for (std::map<string, bool>::iterator it = RimcasInstance->MonitoredRunwayArr.begin(); it != RimcasInstance->MonitoredRunwayArr.end(); ++it)
-	{
-		if (!it->second || RimcasInstance->TimeTable[it->first].empty())
-			continue;
-
-		vector<int> TimeDefinition = RimcasInstance->CountdownDefinition;
-		if (isLVP)
-			TimeDefinition = RimcasInstance->CountdownDefinitionLVP;
-
-		if (TimePopupAreas.find(it->first) == TimePopupAreas.end())
-			TimePopupAreas[it->first] = { 300, 300, 430, 300+LONG(TextHeight*(TimeDefinition.size()+1)) };
-
-		CRect CRectTime = TimePopupAreas[it->first];
-		CRectTime.NormalizeRect();
-
-		dc.FillRect(CRectTime, &BrushGrey);
-
-		// Drawing the runway name
-		string tempS = it->first;
-		dc.TextOutA(CRectTime.left + CRectTime.Width() / 2 - dc.GetTextExtent(tempS.c_str()).cx / 2, CRectTime.top, tempS.c_str());
-
-		int TopOffset = TextHeight;
-		// Drawing the times
-		for (auto &Time : TimeDefinition)
-		{
-			dc.SetTextColor(RGB(33, 33, 33));
-
-			tempS = std::to_string(Time) + ": " + RimcasInstance->TimeTable[it->first][Time];
-			if (RimcasInstance->AcColor.find(RimcasInstance->TimeTable[it->first][Time]) != RimcasInstance->AcColor.end())
-			{
-				CBrush RimcasBrush(RimcasInstance->GetAircraftColor(RimcasInstance->TimeTable[it->first][Time],
-					Color::Black,
-					Color::Black,
-					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"])).ToCOLORREF()
-					);
-
-				CRect TempRect = { CRectTime.left, CRectTime.top + TopOffset, CRectTime.right, CRectTime.top + TopOffset + TextHeight };
-				TempRect.NormalizeRect();
-
-				dc.FillRect(TempRect, &RimcasBrush);
-				dc.SetTextColor(RGB(238, 238, 208));
-			}
-
-			dc.TextOutA(CRectTime.left, CRectTime.top + TopOffset, tempS.c_str());
-
-			TopOffset += TextHeight;
-		}
-
-		AddScreenObject(RIMCAS_IAW, it->first.c_str(), CRectTime, true, "");
-	}
-	*/
+	RestoreDC(dc, oldDC);	
 
 	Logger::info("Menu bar lists");
 
@@ -2767,7 +2715,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	//
 	// App windows
 	//
-
 	Logger::info("App window rendering");
 
 	for (std::map<int, bool>::iterator it = appWindowDisplays.begin(); it != appWindowDisplays.end(); ++it) {
@@ -2777,7 +2724,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		int appWindowId = it->first;
 		appWindows[appWindowId]->render(hDC, this, &graphics, mouseLocation, DistanceTools);
 	}
-
+	
 	dc.Detach();
 
 	Logger::info("END " + string(__FUNCSIG__));
