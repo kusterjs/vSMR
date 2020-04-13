@@ -876,6 +876,8 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 
 	if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
 		ActiveAirport = sItemString;
+		LoadProfile(CurrentConfig->getActiveProfile()["name"].GetString());
+		ReloadActiveRunways();
 		SaveDataToAsr("Airport", "Active airport", ActiveAirport.c_str());
 	}
 
