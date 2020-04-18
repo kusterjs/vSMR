@@ -2475,28 +2475,16 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		graphics.DrawEllipse(&WhitePen, point.x - 5, point.y - 5, 10, 10);
 
 		Distance = Distance / 0.00053996f;
-
 		Distance = round(Distance * 10) / 10;
-
 		Bearing = round(Bearing * 10) / 10;
 
 		POINT TextPos = { point.x + 20, point.y };
 
 		if (!DistanceToolActive) {
-			string distances = std::to_string(Distance);
-			size_t decimal_pos = distances.find(".");
-			distances = distances.substr(0, decimal_pos + 2);
-
-			string bearings = std::to_string(Bearing);
-			decimal_pos = bearings.find(".");
-			bearings = bearings.substr(0, decimal_pos + 2);
-
-			string text = bearings;
-			text += "° / ";
-			text += distances;
-			text += "m";
+			char buffer[32];			
+			sprintf_s(buffer, "%.1f\xB0 / %.1fm", Bearing, Distance);
 			COLORREF old_color = dc.SetTextColor(RGB(255, 255, 255));
-			dc.TextOutA(TextPos.x, TextPos.y, text.c_str());
+			dc.TextOutA(TextPos.x, TextPos.y, buffer);
 			dc.SetTextColor(old_color);
 		}
 
@@ -2526,24 +2514,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		double Distance = one.GetPosition().GetPosition().DistanceTo(two.GetPosition().GetPosition());
 		double Bearing = one.GetPosition().GetPosition().DirectionTo(two.GetPosition().GetPosition());
 
-		string distances = std::to_string(Distance);
-		size_t decimal_pos = distances.find(".");
-		distances = distances.substr(0, decimal_pos + 2);
-
-		string bearings = std::to_string(Bearing);
-		decimal_pos = bearings.find(".");
-		bearings = bearings.substr(0, decimal_pos + 2);
-
-		string text = bearings;
-		text += "° / ";
-		text += distances;
-		text += "nm";
+		char QDRText[32];
+		sprintf_s(QDRText, "%.1f\xB0 / %.1fNM", Bearing, Distance);
 		COLORREF old_color = dc.SetTextColor(RGB(0, 0, 0));
 
-		CRect ClickableRect = { TextPos.x - 2, TextPos.y, TextPos.x + dc.GetTextExtent(text.c_str()).cx + 2, TextPos.y + dc.GetTextExtent(text.c_str()).cy };
+		CRect ClickableRect = { TextPos.x - 2, TextPos.y, TextPos.x + dc.GetTextExtent(QDRText).cx + 2, TextPos.y + dc.GetTextExtent(QDRText).cy };
 		graphics.FillRectangle(&SolidBrush(Color(127, 122, 122)), CopyRect(ClickableRect));
 		dc.Draw3dRect(ClickableRect, RGB(75, 75, 75), RGB(45, 45, 45));
-		dc.TextOutA(TextPos.x, TextPos.y, text.c_str());
+		dc.TextOutA(TextPos.x, TextPos.y, QDRText);
 
 		AddScreenObject(RIMCAS_DISTANCE_TOOL, string(kv.first + "," + kv.second).c_str(), ClickableRect, false, "");
 
