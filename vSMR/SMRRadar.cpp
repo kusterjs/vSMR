@@ -1249,7 +1249,7 @@ bool CSMRRadar::OnCompileCommand(const char * sCommandLine)
 	return false;
 }
 
-map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, bool isAcCorrelated, bool isProMode, int TransitionAltitude, bool useSpeedForGates, string ActiveAirport)
+map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport)
 {
 	Logger::info(string(__FUNCSIG__));
 	// ----
@@ -1276,8 +1276,13 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	// dest: destination aerodrome
 	// ----
 
+	bool isAcCorrelated = radar->IsCorrelated(fp, rt);
+	bool isProMode = radar->CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool();
+	int TransitionAltitude = radar->GetPlugIn()->GetTransitionAltitude();
+	bool useSpeedForGates = radar->CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool();
+
 	bool IsPrimary = !rt.GetPosition().GetTransponderC();
-	bool isAirborne = rt.GetPosition().GetReportedGS() > 50;
+	bool isAirborne = rt.GetPosition().GetPressureAltitude() > radar->CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt();
 
 	// ----- Callsign -------
 	string callsign = rt.GetCallsign();
@@ -1922,7 +1927,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			}
 		}
 
-		if (reportedGs > 50) {
+		if (rt.GetPosition().GetPressureAltitude() > CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt()) {
 			TagType = TagTypes::Airborne;
 
 			// Is "use_departure_arrival_coloring" enabled? if not, then use the airborne colors
@@ -1937,7 +1942,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			ColorTagType = TagTypes::Uncorrelated;
 		}
 
-		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, IsCorrelated(fp, rt), CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool(), GetPlugIn()->GetTransitionAltitude(), CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool(), ActiveAirport);
+		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, this, ActiveAirport);
 
 		// ----- Generating the clickable map -----
 		map<string, int> TagClickableMap;

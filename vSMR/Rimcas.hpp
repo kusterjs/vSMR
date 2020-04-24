@@ -19,7 +19,8 @@ using namespace Gdiplus;
 using namespace EuroScopePlugIn;
 
 
-class CRimcas {
+class CRimcas
+{
 public:
 	CRimcas();
 	virtual ~CRimcas();
@@ -40,7 +41,8 @@ public:
 		bool monitor_arr;
 	};*/
 
-	struct Runway {		
+	struct Runway
+	{
 		string name;
 		bool closed = false;
 		string rwyInUse; // which axis is in use
@@ -48,10 +50,11 @@ public:
 		bool monitor_arr;
 		vector<CPosition> path;
 		vector<CPosition> rimcas_path;
-		vector<CPosition> lvp_path;		
+		vector<CPosition> lvp_path;
 	};
 
-	struct IAW_Aircraft {
+	struct IAW_Aircraft
+	{
 		string callsign;
 		double time;
 		double distance;
@@ -61,7 +64,7 @@ public:
 			return time < p.time;
 		}
 	};
-	
+
 	deque<pair<COLORREF, COLORREF>> IAWColors = {
 		{ RGB(84, 122, 44),    RGB(97, 144, 49) },
 		{ RGB(104, 122, 90), RGB(123, 144, 108) },
@@ -74,10 +77,11 @@ public:
 	COLORREF WarningColor = RGB(160, 90, 30); //RGB(180, 100, 50)
 	COLORREF AlertColor = RGB(150, 0, 0);
 
-	enum RimcasAlertTypes { 
-		NoAlert, 
-		StageOne, 
-		StageTwo 
+	enum RimcasAlertTypes
+	{
+		NoAlert,
+		StageOne,
+		StageTwo
 	};
 
 	//map<string, RunwayAreaType> RunwayAreas;
@@ -101,9 +105,11 @@ public:
 			(point.x - p0.x) * (p1.y - p0.y));
 	}
 
-	inline double NauticalMilesToMeters(double nm) {
+	inline double NauticalMilesToMeters(double nm)
+	{
 		return nm * 1852;
 	}
+
 
 	bool Is_Inside(const POINT &point, const std::vector<POINT> &points_list)
 	{
@@ -121,12 +127,10 @@ public:
 			POINT point2;
 
 			// Wrap?
-			if (i == (size - 1))
-			{
+			if (i == (size - 1)) {
 				point2 = points_list[0];
 			}
-			else
-			{
+			else {
 				point2 = points_list[i + 1];
 			}
 
@@ -140,8 +144,7 @@ public:
 					}
 				}
 			}
-			else
-			{
+			else {
 				// start y > point.y (no test needed)
 				if (point2.y <= point.y)                                // A downward crossing
 				{
@@ -174,7 +177,8 @@ public:
 
 	RimcasAlertTypes getAlert(string callsign);
 
-	void ToggleClosedRunway(string name) {
+	void ToggleClosedRunway(string name)
+	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
 				runway.closed = !runway.closed;
@@ -183,7 +187,8 @@ public:
 		}
 	}
 
-	void ToggleMonitoredRunwayDep(string name) {
+	void ToggleMonitoredRunwayDep(string name)
+	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
 				runway.monitor_dep = !runway.monitor_dep;
@@ -192,7 +197,8 @@ public:
 		}
 	}
 
-	void ToggleMonitoredRunwayArr(string name) {
+	void ToggleMonitoredRunwayArr(string name)
+	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
 				runway.monitor_arr = !runway.monitor_arr;
@@ -201,5 +207,4 @@ public:
 		}
 	}
 
-	//map<string, bool> ClosedRunway;
 };
