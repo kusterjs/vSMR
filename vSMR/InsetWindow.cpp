@@ -453,26 +453,25 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 		// First we need to figure out the tag size
 		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
 		RectF mesureRect;
-		gdi->MeasureString(L" ", wcslen(L" "), radar_screen->customFonts[radar_screen->currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		gdi->MeasureString(L" ", wcslen(L" "), radar_screen->customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 		auto blankWidth = mesureRect.GetRight();
 
 		// default font size
 		mesureRect = RectF(0, 0, 0, 0);
-		gdi->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), radar_screen->customFonts[radar_screen->currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		gdi->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), radar_screen->customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 		auto oneLineHeight = mesureRect.GetBottom();
 
 		// bigger font size if used for 1st TAG line		
 		string font_name = radar_screen->CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
 		wstring wide_font_name = wstring(font_name.begin(), font_name.end());
 
-		float fontsize = radar_screen->customFonts[radar_screen->currentFontSize]->GetSize();
+		float fontsize = radar_screen->customFont->GetSize();
 		double fontSizeScaling = 1.0;
 		if (LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("first_line_font_factor")) {
 			fontSizeScaling = LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["first_line_font_factor"].GetDouble();
-			auto test = radar_screen->customFonts[radar_screen->currentFontSize]->GetSize();
-			fontsize = round((float)fontSizeScaling * (float)test);
+			fontsize = round((float)fontSizeScaling * fontsize);
 		}
-		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), radar_screen->customFonts[radar_screen->currentFontSize]->GetStyle(), Gdiplus::UnitPixel); ;
+		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), radar_screen->customFont->GetStyle(), Gdiplus::UnitPixel); ;
 
 		mesureRect = RectF(0, 0, 0, 0);
 		gdi->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
@@ -517,7 +516,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					gdi->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
 				}
 				else {
-					gdi->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), radar_screen->customFonts[radar_screen->currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+					gdi->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), radar_screen->customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 				}
 				TempTagWidth += mesureRect.GetRight();
 
@@ -602,11 +601,11 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 							PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
 					}
 					else {
-						gdi->DrawString(welement.c_str(), wcslen(welement.c_str()), radar_screen->customFonts[radar_screen->currentFontSize],
+						gdi->DrawString(welement.c_str(), wcslen(welement.c_str()), radar_screen->customFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
 							&Gdiplus::StringFormat(), color);
 
-						gdi->MeasureString(welement.c_str(), wcslen(welement.c_str()), radar_screen->customFonts[radar_screen->currentFontSize],
+						gdi->MeasureString(welement.c_str(), wcslen(welement.c_str()), radar_screen->customFont,
 							PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
 					}
 
@@ -643,7 +642,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 					RectF RectRimcas_height;
 
-					gdi->MeasureString(wrimcas_height.c_str(), wcslen(wrimcas_height.c_str()), radar_screen->customFonts[radar_screen->currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
+					gdi->MeasureString(wrimcas_height.c_str(), wcslen(wrimcas_height.c_str()), radar_screen->customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
 					rimcas_height = int(RectRimcas_height.GetBottom());
 
 					// Drawing the rectangle
@@ -657,7 +656,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					wstring rimcasw = wstring(L"ALERT");
 					StringFormat stformat = new StringFormat();
 					stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-					gdi->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), radar_screen->customFonts[radar_screen->currentFontSize], PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+					gdi->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), radar_screen->customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
 
 				}
 			}

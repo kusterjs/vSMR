@@ -25,7 +25,7 @@ using namespace EuroScopePlugIn;
 
 
 namespace SMRSharedData {
-	static vector<string> ReleasedTracks;
+	//static vector<string> ReleasedTracks;
 	static vector<string> ManuallyCorrelated;
 };
 
@@ -115,8 +115,8 @@ public:
 	CRimcas * RimcasInstance = nullptr;
 	CConfig * CurrentConfig = nullptr;
 
-	map<int, Gdiplus::Font *> customFonts;
-	int currentFontSize = 1;
+	Gdiplus::Font* customFont;
+	int currentFontSize = 15;
 
 	map<string, CPosition> AirportPositions;
 
@@ -152,40 +152,40 @@ public:
 	inline virtual bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
 	{
 		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool()) {
-			if (fp.IsValid()) {
-				bool isCorr = false;
+			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
 				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0) {
-					isCorr = true;
+					return true;
 				}
 
 				if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool()) {
-					isCorr = true;
+					return true;
 				}
 
-				if (isCorr) {
-					ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
-					if (strcmp(rt.GetPosition().GetSquawk() - 2, "00") == 0) { // are the last 2 chars of the squawk 00
+				ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
+				if (strcmp(rt.GetPosition().GetSquawk(), "1000") == 0) { // squawk 1000
+					return true;
+				}
+
+				if (strcmp(rt.GetPosition().GetSquawk() - 2, "00") == 0) { // are the last 2 chars of the squawk 00
+					return false;
+				}
+
+				/*const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
+				for (SizeType i = 0; i < sqs.Size(); i++) {
+					if (strcmp(rt.GetPosition().GetSquawk(), sqs[i].GetString()) == 0) {
 						isCorr = false;
+						break;
 					}
-
-					/*const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
-					for (SizeType i = 0; i < sqs.Size(); i++) {
-						if (strcmp(rt.GetPosition().GetSquawk(), sqs[i].GetString()) == 0) {
-							isCorr = false;
-							break;
-						}
-					}*/
-				}
+				}*/
+				
 
 				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end()) {
-					isCorr = true;
+					return true;
 				}
 
-				if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end()) {
-					isCorr = false;
-				}
-
-				return isCorr;
+				/*if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end()) {
+					return false;
+				}*/
 			}
 
 			return false;

@@ -170,10 +170,8 @@ void CSMRRadar::CorrelateCursor()
 void CSMRRadar::LoadCustomFont()
 {
 	Logger::info(string(__FUNCSIG__));
-	// Loading the custom font if there is one in use
-	customFonts.clear();
 
-	const Value& FSizes = CurrentConfig->getActiveProfile()["font"]["sizes"];
+	// Loading the custom font if there is one in use
 	string font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
 	wstring buffer = wstring(font_name.begin(), font_name.end());
 	Gdiplus::FontStyle fontStyle = Gdiplus::FontStyleRegular;
@@ -182,11 +180,7 @@ void CSMRRadar::LoadCustomFont()
 	if (strcmp(CurrentConfig->getActiveProfile()["font"]["weight"].GetString(), "Italic") == 0)
 		fontStyle = Gdiplus::FontStyleItalic;
 
-	customFonts[1] = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(FSizes["one"].GetInt()), fontStyle, Gdiplus::UnitPixel);
-	customFonts[2] = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(FSizes["two"].GetInt()), fontStyle, Gdiplus::UnitPixel);
-	customFonts[3] = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(FSizes["three"].GetInt()), fontStyle, Gdiplus::UnitPixel);
-	customFonts[4] = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(FSizes["four"].GetInt()), fontStyle, Gdiplus::UnitPixel);
-	customFonts[5] = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(FSizes["five"].GetInt()), fontStyle, Gdiplus::UnitPixel);
+	customFont = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(currentFontSize), fontStyle, Gdiplus::UnitPixel);	
 }
 
 void CSMRRadar::LoadProfile(string profileName)
@@ -198,7 +192,7 @@ void CSMRRadar::LoadProfile(string profileName)
 	LeaderLineDefaultlenght = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
 
 	// Reloading the fonts
-	this->LoadCustomFont();
+	LoadCustomFont();
 
 	// Load custom runways
 	RimcasInstance->Runways.clear();
@@ -288,8 +282,10 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 	if ((p_value = GetDataFromAsr("ActiveProfile")) != NULL)
 		this->LoadProfile(string(p_value));
 
-	if ((p_value = GetDataFromAsr("FontSize")) != NULL)
+	if ((p_value = GetDataFromAsr("FontSize")) != NULL) {
 		currentFontSize = atoi(p_value);
+		LoadCustomFont(); // update font size
+	}
 
 	if ((p_value = GetDataFromAsr("Afterglow")) != NULL)
 		Afterglow = atoi(p_value) == 1 ? true : false;
@@ -721,7 +717,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			if (ReleaseInProgress) {
 				ReleaseInProgress = NeedCorrelateCursor = false;
 
-				ReleasedTracks.push_back(rt.GetSystemID());
+				//ReleasedTracks.push_back(rt.GetSystemID());
 
 				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end())
 					ManuallyCorrelated.erase(std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()));
@@ -732,8 +728,8 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 
 				ManuallyCorrelated.push_back(rt.GetSystemID());
 
-				if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-					ReleasedTracks.erase(std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()));
+				//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
+					//ReleasedTracks.erase(std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()));
 			}
 
 
@@ -881,18 +877,9 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		SaveDataToAsr("Airport", "Active airport", ActiveAirport.c_str());
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_FONTS) {
-		if (strcmp(sItemString, "Size 1") == 0)
-			currentFontSize = 1;
-		if (strcmp(sItemString, "Size 2") == 0)
-			currentFontSize = 2;
-		if (strcmp(sItemString, "Size 3") == 0)
-			currentFontSize = 3;
-		if (strcmp(sItemString, "Size 4") == 0)
-			currentFontSize = 4;
-		if (strcmp(sItemString, "Size 5") == 0)
-			currentFontSize = 5;
-
+	if (FunctionId == RIMCAS_UPDATE_FONTSIZE) {
+		currentFontSize = atoi(sItemString);
+		LoadCustomFont();
 		ShowLists["Label Font Size"] = true;
 	}
 
@@ -1889,8 +1876,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		if (!AcisCorrelated && reportedGs < 3)
 			isAcDisplayed = false;
 
-		if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-			isAcDisplayed = false;
+		//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
+			//isAcDisplayed = false;
 
 		if (!isAcDisplayed)
 			continue;
@@ -1977,26 +1964,25 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		// First we need to figure out the tag size
 		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
 		RectF mesureRect;
-		graphics.MeasureString(L" ", wcslen(L" "), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		graphics.MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 		auto blankWidth = mesureRect.GetRight();
 
 		// default font size
 		mesureRect = RectF(0, 0, 0, 0);
-		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 		auto oneLineHeight = mesureRect.GetBottom();
 
 		// bigger font size if used for 1st TAG line		
 		string font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
 		wstring wide_font_name = wstring(font_name.begin(), font_name.end());
 
-		float fontsize = customFonts[currentFontSize]->GetSize();
+		float fontsize = customFont->GetSize();
 		double fontSizeScaling = 1.0;
 		if (LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("first_line_font_factor")) {
 			fontSizeScaling = LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["first_line_font_factor"].GetDouble();
-			auto test = customFonts[currentFontSize]->GetSize();
-			fontsize = round((float)fontSizeScaling * (float)test);
+			fontsize = round((float)fontSizeScaling * fontsize);
 		}
-		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFonts[currentFontSize]->GetStyle(), Gdiplus::UnitPixel); ;
+		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel); ;
 
 		mesureRect = RectF(0, 0, 0, 0);
 		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
@@ -2039,7 +2025,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
 				}
 				else {
-					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
 				}
 				TempTagWidth += mesureRect.GetRight();
 
@@ -2131,7 +2117,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 				RectF RectRimcas_height;
 
-				graphics.MeasureString(wrimcas_height.c_str(), wcslen(wrimcas_height.c_str()), customFonts[currentFontSize], PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
+				graphics.MeasureString(wrimcas_height.c_str(), wcslen(wrimcas_height.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
 				rimcas_height = int(RectRimcas_height.GetBottom());
 
 				// Drawing the rectangle
@@ -2145,7 +2131,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				wstring rimcasw = wstring(L"ALERT");
 				StringFormat stformat = new StringFormat();
 				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-				graphics.DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFonts[currentFontSize], PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+				graphics.DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
 			}
 		}
 
@@ -2187,11 +2173,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
 				}
 				else {
-					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
+					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
 						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
 						&Gdiplus::StringFormat(), color);
 
-					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFonts[currentFontSize],
+					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
 						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
 				}
 
@@ -2369,11 +2355,22 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	if (ShowLists["Label Font Size"]) {
 		GetPlugIn()->OpenPopupList(ListAreas["Label Font Size"], "Label Font Size", 1);
-		GetPlugIn()->AddPopupListElement("Size 1", "", RIMCAS_UPDATE_FONTS, false, int(bool(currentFontSize == 1)));
-		GetPlugIn()->AddPopupListElement("Size 2", "", RIMCAS_UPDATE_FONTS, false, int(bool(currentFontSize == 2)));
-		GetPlugIn()->AddPopupListElement("Size 3", "", RIMCAS_UPDATE_FONTS, false, int(bool(currentFontSize == 3)));
-		GetPlugIn()->AddPopupListElement("Size 4", "", RIMCAS_UPDATE_FONTS, false, int(bool(currentFontSize == 4)));
-		GetPlugIn()->AddPopupListElement("Size 5", "", RIMCAS_UPDATE_FONTS, false, int(bool(currentFontSize == 5)));
+		GetPlugIn()->AddPopupListElement("5", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 5)));
+		GetPlugIn()->AddPopupListElement("6", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 6)));
+		GetPlugIn()->AddPopupListElement("7", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 7)));
+		GetPlugIn()->AddPopupListElement("8", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 8)));
+		GetPlugIn()->AddPopupListElement("9", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 9)));
+		GetPlugIn()->AddPopupListElement("10", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 10)));
+		GetPlugIn()->AddPopupListElement("11", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 11)));
+		GetPlugIn()->AddPopupListElement("12", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 12)));
+		GetPlugIn()->AddPopupListElement("13", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 13)));
+		GetPlugIn()->AddPopupListElement("14", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 14)));
+		GetPlugIn()->AddPopupListElement("15", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 15)));
+		GetPlugIn()->AddPopupListElement("16", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 16)));
+		GetPlugIn()->AddPopupListElement("17", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 17)));
+		GetPlugIn()->AddPopupListElement("18", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 18)));
+		GetPlugIn()->AddPopupListElement("19", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 19)));
+		GetPlugIn()->AddPopupListElement("20", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 20)));
 		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		ShowLists["Label Font Size"] = false;
 	}
