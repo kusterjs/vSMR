@@ -350,8 +350,8 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 }
 
 CSMRPlugin::~CSMRPlugin()
-{
-	// NOTE: 'SaveDataToSettings()' doesn't actually write data anywhere in a file, contrary to what the name freaking suggests.
+{	
+	// I do not understand where this is saved...
 	SaveDataToSettings("cpdlc_logon", "The CPDLC logon callsign", logonCallsign.c_str());
 	SaveDataToSettings("cpdlc_password", "The CPDLC logon password", logonCode.c_str());
 	int temp = 0;

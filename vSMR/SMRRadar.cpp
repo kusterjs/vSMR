@@ -120,8 +120,6 @@ CSMRRadar::CSMRRadar()
 	Logger::info("Loading profile");
 
 	this->CSMRRadar::LoadProfile("Default");
-
-	this->CSMRRadar::LoadCustomFont();
 }
 
 CSMRRadar::~CSMRRadar()
@@ -205,6 +203,13 @@ void CSMRRadar::LoadProfile(string profileName)
 			smrRunway.name = rwy.GetRunwayName(0) + string("/") + rwy.GetRunwayName(1);
 			smrRunway.monitor_dep = rwy.IsElementActive(true, 0) | rwy.IsElementActive(true, 1);
 			smrRunway.monitor_arr = rwy.IsElementActive(false, 0) | rwy.IsElementActive(false, 1);
+
+			if (rwy.IsElementActive(true, 0) | rwy.IsElementActive(false, 0)) {
+				smrRunway.rwyInUse = rwy.GetRunwayName(0);
+			}
+			else if (rwy.IsElementActive(true, 1) | rwy.IsElementActive(false, 1)) {
+				smrRunway.rwyInUse = rwy.GetRunwayName(1);
+			}
 
 			CPosition Left;
 			rwy.GetPosition(&Left, 1);
@@ -494,8 +499,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 			else {
 				TagsOffsets[sObjectId] = CustomTag;
 			}
-
-
+			
 			GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));
 
 			if (Released) {
@@ -1453,7 +1457,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 
 	// Pro mode data here
 	if (isProMode) {
-
+		/*
 		if (isAirborne && !isAcCorrelated) {
 			callsign = tssr;
 		}
@@ -1463,7 +1467,6 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		}
 
 		// Is a primary target
-
 		if (isAirborne && !isAcCorrelated && IsPrimary) {
 			flightlevel = "NoALT";
 			tendency = "?";
@@ -1473,6 +1476,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		if (isAirborne && !isAcCorrelated && IsPrimary) {
 			callsign = TagReplacingMap["systemid"];
 		}
+		*/
 	}
 
 	TagReplacingMap["callsign"] = callsign;
@@ -2037,7 +2041,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 			ReplacedLabelLines.push_back(lineStringArray);
 		}
-		TagHeight = TagHeight - 2;
+		//TagHeight = TagHeight - 2;
 
 		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]);
 		if (ColorTagType == TagTypes::Departure) {
@@ -2071,7 +2075,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagBackgroundColor = ColorManager->get_corrected_color("label", TagBackgroundColor);
 
 		// Drawing the tag background
-
 		CRect TagBackgroundRect((int)(TagCenter.x - (TagWidth / 2.0)), (int)(TagCenter.y - (TagHeight / 2.0)), (int)(TagCenter.x + (TagWidth / 2.0)), (int)(TagCenter.y + (TagHeight / 2.0)));
 		SolidBrush TagBackgroundBrush(TagBackgroundColor);
 		graphics.FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
@@ -2273,15 +2276,15 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			dc.LineTo(arcLineX, arcLineY);
 
 			auto textSize = dc.GetTextExtent(aircraft.callsign.c_str());
-			LONG arcTextX = arcLineX - LONG(sinAngle*textSize.cx*0.8);
-			LONG arcTextY = arcLineY + LONG(cosAngle*textSize.cy*0.6 - 10);
+			LONG arcTextX = arcLineX - LONG(sinAngle*textSize.cx*0.7);
+			LONG arcTextY = arcLineY + LONG(cosAngle*textSize.cy*1.2);
 			dc.SetTextColor(aircraft.colors.second);
 			dc.SetTextAlign(TA_CENTER);
-			dc.TextOutA(arcTextX, arcTextY - 6, aircraft.callsign.c_str());
+			dc.TextOutA(arcTextX, arcTextY-textSize.cy, aircraft.callsign.c_str());
 
 			char distanceString[8];
 			sprintf_s(distanceString, "%.1f", aircraft.distance);
-			dc.TextOutA(arcTextX, arcTextY + 6, distanceString);
+			dc.TextOutA(arcTextX, arcTextY, distanceString);
 
 			outerRect.DeflateRect(4, 4);
 
