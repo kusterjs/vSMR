@@ -712,8 +712,7 @@ CRadarScreen * CSMRPlugin::OnRadarScreenCreated(const char * sDisplayName, bool 
 //---EuroScopePlugInExit-----------------------------------------------
 
 void __declspec (dllexport) EuroScopePlugInExit(void)
-{
-	return;
+{	
 	for each (auto var in RadarScreensOpened)
 	{
 		var->EuroScopePlugInExitCustom();

@@ -150,7 +150,7 @@ public:
 	//---IsCorrelatedFuncs---------------------------------------------
 
 	inline virtual bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
-	{
+	{		
 		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool()) {
 			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
 				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0) {
