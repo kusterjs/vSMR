@@ -856,6 +856,13 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		onFunctionCallDoubleCallHack = true;
 	}
 
+	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_SCRATCHPAD) {
+		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(sObjectId);
+		GetPlugIn()->SetASELAircraft(fp);
+		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SCRATCHPAD_EDITOR, fp.GetControllerAssignedData().GetScratchPadString());
+		onFunctionCallDoubleCallHack = true;
+	}
+
 	if (ObjectType == RIMCAS_DISTANCE_TOOL) {
 		vector<string> s = split(sObjectId, ',');
 		pair<string, string> toRemove = pair<string, string>(s.front(), s.back());
@@ -925,6 +932,14 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
+	if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
+		if (onFunctionCallDoubleCallHack) {
+			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
+			fp.GetControllerAssignedData().SetScratchPadString(sItemString);
+			onFunctionCallDoubleCallHack = false;
+		}
+	}
+
 
 	if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
 		int id = FunctionId - APPWINDOW_BASE;
@@ -1425,9 +1440,9 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 		srvrwy = arvrwy;
 
 	// ----- Speed only inside runway area -----
-	string speedarr = "";
+	string gshide = "";
 	if (isOnRunway) {
-		speedarr = speed;
+		gshide = speed;
 	}
 
 	// ----- Gate -------
@@ -1513,6 +1528,12 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 		gstat = fp.GetGroundState();
 	}
 
+	// ----- Scratchpad ------
+	string scratchpad = fp.GetControllerAssignedData().GetScratchPadString();
+	if (scratchpad.length() == 0) {
+		scratchpad = "_______";
+	}
+
 	// ----- Generating the replacing map -----
 	map<string, TagItem> TagMap;
 
@@ -1558,7 +1579,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	TagMap["sate"]			= { sate, TAG_CITEM_GATE };
 	TagMap["flightlevel"]	= { flightlevel, TAG_CITEM_NO };
 	TagMap["gs"]			= { speed, TAG_CITEM_NO };
-	TagMap["speedarr"]		= { speedarr, TAG_CITEM_NO };
+	TagMap["gshide"]		= { gshide, TAG_CITEM_NO };
 	TagMap["tendency"]		= { tendency, TAG_CITEM_NO };
 	TagMap["wake"]			= { wake, TAG_CITEM_FPBOX };
 	TagMap["ssr"]			= { tssr, TAG_CITEM_NO };
@@ -1566,6 +1587,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	TagMap["ssid"]			= { ssid,TAG_CITEM_SID };
 	TagMap["origin"]		= { origin, TAG_CITEM_FPBOX };
 	TagMap["dest"]			= { dest, TAG_CITEM_FPBOX };
+	TagMap["scratchpad"]	= { scratchpad, TAG_CITEM_SCRATCHPAD };
 	TagMap["groundstatus"]	= { gstat, TAG_CITEM_GROUNDSTATUS };
 
 	return TagMap;
