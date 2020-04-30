@@ -27,7 +27,9 @@ WNDPROC gSourceProc;
 HWND pluginWindow;
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+set<string> CSMRRadar::manuallyCorrelated;
 map<string, string> CSMRRadar::vStripsStands;
+
 
 map<int, CInsetWindow *> appWindows;
 
@@ -723,14 +725,15 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 
 				//ReleasedTracks.push_back(rt.GetSystemID());
 
-				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end())
-					ManuallyCorrelated.erase(std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()));
+				if (manuallyCorrelated.count(rt.GetSystemID()) > 0) {
+					manuallyCorrelated.erase(rt.GetSystemID());
+				}
 			}
 
 			if (AcquireInProgress) {
 				AcquireInProgress = NeedCorrelateCursor = false;
 
-				ManuallyCorrelated.push_back(rt.GetSystemID());
+				manuallyCorrelated.insert(rt.GetSystemID());
 
 				//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
 					//ReleasedTracks.erase(std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()));
@@ -819,7 +822,6 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		{ TAG_CITEM_FPBOX, TAG_ITEM_FUNCTION_OPEN_FP_DIALOG },
 		{ TAG_CITEM_RWY, TAG_ITEM_FUNCTION_ASSIGNED_RUNWAY },
 		{ TAG_CITEM_SID, TAG_ITEM_FUNCTION_ASSIGNED_SID },
-		{ TAG_CITEM_GATE, TAG_ITEM_FUNCTION_EDIT_SCRATCH_PAD },
 		{ TAG_CITEM_GROUNDSTATUS, TAG_ITEM_FUNCTION_SET_GROUND_STATUS }
 	};
 
@@ -845,6 +847,12 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		StartTagFunction(rt.GetCallsign(), NULL, ObjectType, rt.GetCallsign(), NULL, TagMenu, Pt, Area);
 	}
 
+	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_GATE) {		
+		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(sObjectId);
+		GetPlugIn()->SetASELAircraft(fp);
+		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, GetStandNumber(fp).c_str());
+	}
+
 	if (ObjectType == RIMCAS_DISTANCE_TOOL) {
 		vector<string> s = split(sObjectId, ',');
 		pair<string, string> toRemove = pair<string, string>(s.front(), s.back());
@@ -865,9 +873,39 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 	RequestRefresh();
 };
 
+void  CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button) {
+	Logger::info(string(__FUNCSIG__));
+	mouseLocation = Pt;
+
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS) {
+		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);		
+		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));  // make sure the correct aircraft is selected before calling 'StartTagFunction'
+
+		string callsign = rt.GetCallsign();
+		if (tagDetailed.count(callsign)) {
+			tagDetailed.erase(callsign);
+		}
+		else {
+			tagDetailed.insert(callsign);
+		}
+	}
+}
+
 void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT Pt, RECT Area)
 {
 	Logger::info(string(__FUNCSIG__));
+	Logger::info(std::to_string(FunctionId) + " - " + sItemString);
+
+	/* 	-----------------------------------------------------------------------------------------------
+	This function is seemingly called twice when coming from a popup edit box
+	Who the hell knows why... but it is quite problematic
+	
+	Also, both the CPlugIn AND the CRadarScreen versions of the function always get called together,
+	so technically (apparently) you could have the implementation of both into just one...
+	not sure what the point would be or if it's any good either, just weird all around
+	----------------------------------------------------------------------------------------------- */
+	
+
 	mouseLocation = Pt;
 	if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
 		int id = FunctionId - APPWINDOW_BASE;
@@ -1270,10 +1308,11 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	bool isAcCorrelated = radar->IsCorrelated(fp, rt);
 	bool isProMode = radar->CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool();
 	int TransitionAltitude = radar->GetPlugIn()->GetTransitionAltitude();
-	bool useSpeedForGates = radar->CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool();
+	//bool useSpeedForGates = radar->CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool();
 
 	bool IsPrimary = !rt.GetPosition().GetTransponderC();
 	bool isAirborne = rt.GetPosition().GetPressureAltitude() > radar->CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt();
+	bool isOnRunway = radar->IsAcOnRunway(rt); // radar->RimcasInstance->isAcOnRunway(callsign) <- can't use this as the list of acft on runways is cleared at this stage in the RIMCAS pipeline
 
 	// ----- Callsign -------
 	string callsign = rt.GetCallsign();
@@ -1343,10 +1382,11 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	if (deprwy.length() == 0)
 		deprwy = "RWY";
 
-	// ----- Departure runway that changes for overspeed -------
+	// ----- Departure runway that changes for speed on the runway -------
 	string seprwy = deprwy;
-	if (rt.GetPosition().GetReportedGS() > 25)
+	if (isOnRunway){
 		seprwy = std::to_string(rt.GetPosition().GetReportedGS());
+	}
 
 	// ----- Arrival runway -------
 	string arvrwy = fp.GetFlightPlanData().GetArrivalRwy();
@@ -1358,14 +1398,14 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	if (rt.GetPosition().GetReportedGS() < 25)
 		srvrwy = arvrwy;
 
-	// ----- Gate -------
-	string gate;
-	if (useSpeedForGates)
-		gate = std::to_string(fp.GetControllerAssignedData().GetAssignedSpeed());
-	else
-		gate = fp.GetControllerAssignedData().GetScratchPadString();
+	// ----- Speed only inside runway area -----
+	string speedarr = "";
+	if (isOnRunway) {
+		speedarr = speed;
+	}
 
-	gate = gate.substr(0, 4);
+	// ----- Gate -------
+	string gate = CSMRRadar::GetStandNumber(fp);
 
 	// If there is a vStrips gate, we use that
 	if (vStripsStands.find(rt.GetCallsign()) != vStripsStands.end()) {
@@ -1491,6 +1531,7 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	TagReplacingMap["sate"] = sate;
 	TagReplacingMap["flightlevel"] = flightlevel;
 	TagReplacingMap["gs"] = speed;
+	TagReplacingMap["speedarr"] = speedarr;
 	TagReplacingMap["tendency"] = tendency;
 	TagReplacingMap["wake"] = wake;
 	TagReplacingMap["ssr"] = tssr;
@@ -1846,7 +1887,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 #pragma endregion Drawing of the symbols
 
 	TimePopupData.clear();
-	AcOnRunway.clear();
+	RimcasInstance->AcOnRunway.clear();
 	ColorAC.clear();
 	tagAreas.clear();
 
@@ -1949,6 +1990,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagClickableMap[TagReplacingMap["sate"]] = TAG_CITEM_GATE;
 		TagClickableMap[TagReplacingMap["flightlevel"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["gs"]] = TAG_CITEM_NO;
+		TagClickableMap[TagReplacingMap["speedarr"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["tendency"]] = TAG_CITEM_NO;
 		TagClickableMap[TagReplacingMap["wake"]] = TAG_CITEM_FPBOX;
 		TagClickableMap[TagReplacingMap["ssr"]] = TAG_CITEM_NO;
@@ -1994,7 +2036,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		auto firstLineHeight = mesureRect.GetBottom();
 
 		// get label lines definitions
-		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()]["definition"];
+		const char* def = "definition";
+		if (tagDetailed.count(rt.GetCallsign()) > 0) {
+			def = "definition_full";
+		}
+
+		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()][def];
 		vector<vector<string>> ReplacedLabelLines;
 
 		if (!LabelLines.IsArray())

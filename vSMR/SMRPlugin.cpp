@@ -14,6 +14,8 @@ HttpHelper* httpHelper = NULL;
 
 bool BLINK = false;
 
+bool onFunctionCallDoubleCallHack = false;
+
 bool PlaySoundClr = false;
 
 struct DatalinkPacket
@@ -314,7 +316,10 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 	RegisterDisplayType(MY_PLUGIN_VIEW_AVISO, false, true, true, true);
 
 	RegisterTagItemType("Datalink clearance", TAG_ITEM_DATALINK_STS);
+	RegisterTagItemType("Stand number", TAG_CITEM_GATE);
 	RegisterTagItemFunction("Datalink menu", TAG_FUNC_DATALINK_MENU);
+	RegisterTagItemFunction("Edit stand", TAG_FUNC_STAND_EDIT);
+
 
 	messageId = rand() % 10000 + 1789;
 
@@ -430,6 +435,12 @@ bool CSMRPlugin::OnCompileCommand(const char * sCommandLine)
 void CSMRPlugin::OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, int ItemCode, int TagData, char sItemString[16], int * pColorCode, COLORREF * pRGB, double * pFontSize)
 {
 	Logger::info(string(__FUNCSIG__));
+	if (ItemCode == TAG_CITEM_GATE) {
+		if (FlightPlan.IsValid()) {
+			strcpy_s(sItemString, 16, CSMRRadar::GetStandNumber(FlightPlan).c_str());
+		}
+	}
+
 	if (ItemCode == TAG_ITEM_DATALINK_STS) {
 		if (FlightPlan.IsValid()) {
 			if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), FlightPlan.GetCallsign()) != AircraftDemandingClearance.end()) {
@@ -475,7 +486,38 @@ void CSMRPlugin::OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, 
 void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT Pt, RECT Area)
 {
 	Logger::info(string(__FUNCSIG__));
-	if (FunctionId == TAG_FUNC_DATALINK_MENU) {
+	Logger::info(std::to_string(FunctionId) + " - " + sItemString);
+
+	/* 	-----------------------------------------------------------------------------------------------
+	This function is seemingly called twice when coming from a popup edit box
+	Who the hell knows why... but it is quite problematic
+	Therefor, a hack variable is used to force the "after edit" function (here TAG_FUNC_STAND_EDITOR)
+	to be called only once.
+
+	Also, both the CPlugIn AND the CRadarScreen versions of the function always get called together,
+	so technically (apparently) you could have the implementation of both into just one...
+	not sure what the point would be or if it's any good either, just weird all around
+	----------------------------------------------------------------------------------------------- */
+
+	switch (FunctionId) {
+
+	case TAG_FUNC_STAND_EDIT: {
+		CFlightPlan fp = FlightPlanSelectASEL();
+		OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, CSMRRadar::GetStandNumber(fp).c_str());
+		onFunctionCallDoubleCallHack = true;
+		break;
+	}
+
+	case TAG_FUNC_STAND_EDITOR: { // when finished editing
+		if (onFunctionCallDoubleCallHack) {
+			CFlightPlan fp = FlightPlanSelectASEL();
+			CSMRRadar::SetStandNumber(fp, sItemString);
+			onFunctionCallDoubleCallHack = false;
+		}
+		break;
+	}
+	
+	case TAG_FUNC_DATALINK_MENU: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		bool menu_is_datalink = true;
@@ -493,9 +535,11 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 		AddPopupListElement("Voice", "", TAG_FUNC_DATALINK_VOICE, false, 2, menu_is_datalink);
 		AddPopupListElement("Reset", "", TAG_FUNC_DATALINK_RESET, false, 2, false, true);
 		AddPopupListElement("Close", "", EuroScopePlugIn::TAG_ITEM_FUNCTION_NO, false, 2, false, true);
+
+		break;
 	}
 
-	if (FunctionId == TAG_FUNC_DATALINK_RESET) {
+	case TAG_FUNC_DATALINK_RESET: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.IsValid()) {
@@ -518,9 +562,10 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 				PendingMessages.erase(FlightPlan.GetCallsign());
 			}
 		}
+		break;
 	}
 
-	if (FunctionId == TAG_FUNC_DATALINK_STBY) {
+	case TAG_FUNC_DATALINK_STBY: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.IsValid()) {
@@ -530,9 +575,10 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			tdest = FlightPlan.GetCallsign();
 			_beginthread(sendDatalinkMessage, 0, NULL);
 		}
+		break;
 	}
 
-	if (FunctionId == TAG_FUNC_DATALINK_MESSAGE) {
+	case TAG_FUNC_DATALINK_MESSAGE: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.IsValid()) {
@@ -557,9 +603,10 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			tdest = FlightPlan.GetCallsign();
 			_beginthread(sendDatalinkMessage, 0, NULL);
 		}
+		break;
 	}
 
-	if (FunctionId == TAG_FUNC_DATALINK_VOICE) {
+	case TAG_FUNC_DATALINK_VOICE: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.IsValid()) {
@@ -577,10 +624,10 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 
 			_beginthread(sendDatalinkMessage, 0, NULL);
 		}
-
+		break;
 	}
 
-	if (FunctionId == TAG_FUNC_DATALINK_CONFIRM) {
+	case TAG_FUNC_DATALINK_CONFIRM: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();
 
 		if (FlightPlan.IsValid()) {
@@ -646,7 +693,8 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			_beginthread(sendDatalinkClearance, 0, NULL);
 
 		}
-
+		break;
+	}
 	}
 }
 
@@ -667,8 +715,9 @@ void CSMRPlugin::OnFlightPlanDisconnect(CFlightPlan FlightPlan)
 	//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
 		//ReleasedTracks.erase(std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()));
 
-	if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end())
-		ManuallyCorrelated.erase(std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()));
+	if (CSMRRadar::manuallyCorrelated.count(rt.GetSystemID()) > 0) {
+		CSMRRadar::manuallyCorrelated.erase(rt.GetSystemID());
+	}
 }
 
 void CSMRPlugin::OnTimer(int Counter)

@@ -24,17 +24,16 @@ using namespace Gdiplus;
 using namespace EuroScopePlugIn;
 
 
-namespace SMRSharedData {
-	//static vector<string> ReleasedTracks;
-	static vector<string> ManuallyCorrelated;
-};
+//namespace SMRSharedData {
+	//static vector<string> ReleasedTracks;	
+//};
 
 
 namespace SMRPluginSharedData {
 	static asio::io_service io_service;
 }
 
-using namespace SMRSharedData;
+//using namespace SMRSharedData;
 
 class CSMRRadar :
 	public EuroScopePlugIn::CRadarScreen
@@ -43,6 +42,7 @@ public:
 	CSMRRadar();
 	virtual ~CSMRRadar();
 
+	static set<string> manuallyCorrelated;
 	static map<string, string> vStripsStands;
 
 	bool BLINK = false;
@@ -87,6 +87,7 @@ public:
 
 	map<int, bool> appWindowDisplays;
 
+	set<string> tagDetailed;
 	map<string, CRect> tagAreas;
 	map<string, double> TagAngles;
 	map<string, int> TagLeaderLineLength;
@@ -102,7 +103,7 @@ public:
 	map<string, RECT> TimePopupAreas;
 
 	map<int, string> TimePopupData;
-	multimap<string, string> AcOnRunway;
+	//multimap<string, string> AcOnRunway;
 	map<string, bool> ColorAC;
 
 	//map<string, CRimcas::RunwayAreaType> RunwayAreas;
@@ -149,7 +150,7 @@ public:
 
 	//---IsCorrelatedFuncs---------------------------------------------
 
-	inline virtual bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
+	bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
 	{		
 		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool()) {
 			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
@@ -179,7 +180,7 @@ public:
 				}*/
 				
 
-				if (std::find(ManuallyCorrelated.begin(), ManuallyCorrelated.end(), rt.GetSystemID()) != ManuallyCorrelated.end()) {
+				if (manuallyCorrelated.count(rt.GetSystemID()) > 0) {
 					return true;
 				}
 
@@ -196,11 +197,83 @@ public:
 		}
 	};
 
+	static string GetStandNumber(CFlightPlan fp)
+	{
+		if (!fp.IsValid())
+			return "";
+
+		const char* remarks = fp.GetFlightPlanData().GetRemarks();
+		const char* pGate = strstr(remarks, " STAND/");
+		if (pGate != nullptr) {
+			auto pEnd = strpbrk(pGate, " \r\n\0");
+			char stand[16];
+			strncpy_s(stand, pGate + 7, pEnd - (pGate + 7));
+			return stand;
+		}
+		return "";
+	}
+
+	static void SetStandNumber(CFlightPlan fp, string stand)
+	{
+		if (!fp.IsValid())
+			return;
+
+		string remarks = fp.GetFlightPlanData().GetRemarks();
+
+		size_t pos1 = remarks.find(" STAND/");
+		if (pos1 < remarks.length()) { // contains a stand already
+			size_t pos2 = remarks.find_first_of(" \r\n\0", pos1+1);
+
+			if (stand == "") { // remove it
+				remarks.erase(pos1, pos2 - pos1 + 1);
+			}
+			else { // update it
+				remarks.replace(pos1, pos2 - pos1 + 1, " STAND/" + stand);
+			}
+		}
+
+		else { // ne entry -> add it
+			remarks += " STAND/" + stand;
+		}
+
+		fp.GetFlightPlanData().SetRemarks(remarks.c_str());
+		fp.GetFlightPlanData().AmendFlightPlan();
+	}
+
+	bool IsAcOnRunway(CRadarTarget Ac)
+	{
+		int AltitudeDif = Ac.GetPosition().GetFlightLevel() - Ac.GetPreviousPosition(Ac.GetPosition()).GetFlightLevel();
+		if (!Ac.GetPosition().GetTransponderC())
+			AltitudeDif = 0;
+
+		if (Ac.GetGS() > 160 || AltitudeDif > 200)
+			return false;
+
+		POINT AcPosPix = ConvertCoordFromPositionToPixel(Ac.GetPosition().GetPosition());
+
+		for (const auto &rwy : RimcasInstance->Runways) {
+			if (!rwy.monitor_dep && !rwy.monitor_arr)
+				continue;
+
+			vector<POINT> RunwayOnScreen;
+			for (const auto &Point : rwy.rimcas_path) {
+				RunwayOnScreen.push_back(ConvertCoordFromPositionToPixel(Point));
+			}
+
+			if (Is_Inside(AcPosPix, RunwayOnScreen)) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+
 	void SMRSetCursor(HCURSOR targetCursor);
 
-	virtual void CorrelateCursor();
-	virtual void LoadCustomFont();
-	virtual void LoadProfile(string profileName);
+	void CorrelateCursor();
+	void LoadCustomFont();
+	void LoadProfile(string profileName);
 
 	virtual void OnAsrContentLoaded(bool Loaded);
 	virtual void OnAsrContentToBeSaved();
@@ -208,6 +281,7 @@ public:
 	virtual void OnRefresh(HDC hDC, int Phase);
 
 	virtual void OnClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button);
+	virtual void OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button);
 	virtual void OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, bool Released);
 	virtual void OnOverScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area);
 
@@ -216,7 +290,7 @@ public:
 	virtual void OnRadarTargetPositionUpdate(CRadarTarget RadarTarget);
 	virtual void OnFlightPlanDisconnect(CFlightPlan FlightPlan);
 
-	virtual bool isVisible(CRadarTarget rt)
+	bool isVisible(CRadarTarget rt)
 	{
 		CRadarTargetPositionData RtPos = rt.GetPosition();
 		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
@@ -244,7 +318,7 @@ public:
 	// Heading in deg, distance in m
 	const double PI = (double)M_PI;
 
-	inline virtual CPosition Haversine(CPosition origin, double heading, double distance)
+	inline CPosition Haversine(CPosition origin, double heading, double distance)
 	{
 
 		CPosition newPos;
@@ -263,7 +337,7 @@ public:
 		return newPos;
 	}
 
-	inline virtual float randomizeHeading(float originHead)
+	inline float randomizeHeading(float originHead)
 	{
 		return float(fmod(originHead + float((rand() % 5) - 2), 360));
 	}
@@ -271,33 +345,6 @@ public:
 	//---GetBottomLine---------------------------------------------
 
 	virtual string GetBottomLine(const char * Callsign);
-
-	//---LineIntersect---------------------------------------------
-
-	/*inline virtual POINT getIntersectionPoint(POINT lineA, POINT lineB, POINT lineC, POINT lineD) {
-
-		double x1 = lineA.x;
-		double y1 = lineA.y;
-		double x2 = lineB.x;
-		double y2 = lineB.y;
-
-		double x3 = lineC.x;
-		double y3 = lineC.y;
-		double x4 = lineD.x;
-		double y4 = lineD.y;
-
-		POINT p = { 0, 0 };
-
-		double d = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
-		if (d != 0) {
-			double xi = ((x3 - x4) * (x1 * y2 - y1 * x2) - (x1 - x2) * (x3 * y4 - y3 * x4)) / d;
-			double yi = ((y3 - y4) * (x1 * y2 - y1 * x2) - (y1 - y2) * (x3 * y4 - y3 * x4)) / d;
-
-			p = { (int)xi, (int)yi };
-
-		}
-		return p;
-	}*/
 
 	void ReloadActiveRunways();
 

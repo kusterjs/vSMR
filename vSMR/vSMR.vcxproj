@@ -53,6 +53,7 @@
     <Linkage-curl>static</Linkage-curl>
     <Linkage-libssh2>static</Linkage-libssh2>
     <Linkage-zlib>static</Linkage-zlib>
+    <OutDir>H:\Lionel\Documents\VATSIM\Euroscope\vACC Switzerland\LSAS\Plugins\vSMR_Debug</OutDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

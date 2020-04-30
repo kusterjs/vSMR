@@ -3275,7 +3275,6 @@ public:
 
 } ;
 
-
 class DllSpecEuroScope CFlightPlanList
 {
 private:
@@ -3399,7 +3398,6 @@ public:
     //-----------------------------------------------------------------
 
 } ;
-
 
 class DllSpecEuroScope CSectorElement
 {
@@ -3769,7 +3767,6 @@ public:
     //-----------------------------------------------------------------
 
 } ;
-
 
 class DllSpecEuroScope CPlugIn
 {
