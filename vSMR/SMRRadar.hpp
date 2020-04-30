@@ -58,6 +58,12 @@ public:
 	COLORREF SMR_H2_COLOR = RGB(0, 219, 219);
 	COLORREF SMR_H3_COLOR = RGB(0, 183, 183);
 
+	struct TagItem
+	{
+		string value;
+		int function;
+	};
+
 	typedef struct tagPOINT2
 	{
 		double x;
@@ -146,7 +152,7 @@ public:
 
 	//---GenerateTagData--------------------------------------------
 
-	static map<string, string> GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport);
+	static map<string, TagItem> GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport);
 
 	//---IsCorrelatedFuncs---------------------------------------------
 

@@ -13,9 +13,6 @@ string logonCallsign = "LSGG";
 HttpHelper* httpHelper = NULL;
 
 bool BLINK = false;
-
-bool onFunctionCallDoubleCallHack = false;
-
 bool PlaySoundClr = false;
 
 struct DatalinkPacket
@@ -491,8 +488,6 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 	/* 	-----------------------------------------------------------------------------------------------
 	This function is seemingly called twice when coming from a popup edit box
 	Who the hell knows why... but it is quite problematic
-	Therefor, a hack variable is used to force the "after edit" function (here TAG_FUNC_STAND_EDITOR)
-	to be called only once.
 
 	Also, both the CPlugIn AND the CRadarScreen versions of the function always get called together,
 	so technically (apparently) you could have the implementation of both into just one...
@@ -500,22 +495,6 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 	----------------------------------------------------------------------------------------------- */
 
 	switch (FunctionId) {
-
-	case TAG_FUNC_STAND_EDIT: {
-		CFlightPlan fp = FlightPlanSelectASEL();
-		OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, CSMRRadar::GetStandNumber(fp).c_str());
-		onFunctionCallDoubleCallHack = true;
-		break;
-	}
-
-	case TAG_FUNC_STAND_EDITOR: { // when finished editing
-		if (onFunctionCallDoubleCallHack) {
-			CFlightPlan fp = FlightPlanSelectASEL();
-			CSMRRadar::SetStandNumber(fp, sItemString);
-			onFunctionCallDoubleCallHack = false;
-		}
-		break;
-	}
 	
 	case TAG_FUNC_DATALINK_MENU: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();

@@ -35,6 +35,7 @@ inline static bool startsWith(const char *pre, const char *str)
 	return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
 };
 
+/*
 inline static void replaceAll(string& source, const string& from, const string& to)
 {
 	string newString;
@@ -55,6 +56,7 @@ inline static void replaceAll(string& source, const string& from, const string& 
 
 	source.swap(newString);
 };
+*/
 
 inline static Gdiplus::Rect CopyRect(CRect &rect)
 {
@@ -303,11 +305,12 @@ const int RIMCAS_OPEN_LIST = 9873;
 const int RIMCAS_TIMER = 8015;
 const int RIMCAS_UPDATE_PROFILE = 8016;
 const int RIMCAS_UPDATE_BRIGHNESS = 8017;
-const int RIMCAS_UPDATE_FONTSIZE = 8018;
-const int RIMCAS_UPDATE_LVP = 8019;
-const int RIMCAS_CA_DEPARTURE_FUNC = 8022;
-const int RIMCAS_CA_ARRIVAL_FUNC = 8020;
-const int RIMCAS_CLOSED_RUNWAYS_FUNC = 8021;
+const int RIMCAS_UPDATE_FONTSIZE_EDIT = 8018;
+const int RIMCAS_UPDATE_FONTSIZE_EDITOR = 8019;
+const int RIMCAS_UPDATE_LVP = 8020;
+const int RIMCAS_CA_DEPARTURE_FUNC = 8021;
+const int RIMCAS_CA_ARRIVAL_FUNC = 8022;
+const int RIMCAS_CLOSED_RUNWAYS_FUNC = 8023;
 const int RIMCAS_UPDATE_AFTERGLOW = 8030;
 const int RIMCAS_UPDATE_GND_TRAIL = 8031;
 const int RIMCAS_UPDATE_APP_TRAIL = 8032;

@@ -7,6 +7,8 @@ CPoint mouseLocation(0, 0);
 string TagBeingDragged;
 int LeaderLineDefaultlenght = 50;
 
+bool onFunctionCallDoubleCallHack = false;
+
 //
 // Cursor Things
 //
@@ -645,7 +647,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			Area.bottom = Area.bottom + 30;
 
 			GetPlugIn()->OpenPopupList(Area, "Target", 1);
-			GetPlugIn()->AddPopupListElement("Label Font Size", "", RIMCAS_OPEN_LIST);
+			GetPlugIn()->AddPopupListElement(("Label Font Size: " + std::to_string(currentFontSize)).c_str(), "", RIMCAS_UPDATE_FONTSIZE_EDIT);
 			GetPlugIn()->AddPopupListElement("Afterglow", "", RIMCAS_UPDATE_AFTERGLOW, false, int(Afterglow));
 			GetPlugIn()->AddPopupListElement("GRND Trail Dots", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("APPR Trail Dots", "", RIMCAS_OPEN_LIST);
@@ -851,6 +853,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(fp);
 		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, GetStandNumber(fp).c_str());
+		onFunctionCallDoubleCallHack = true;
 	}
 
 	if (ObjectType == RIMCAS_DISTANCE_TOOL) {
@@ -895,10 +898,13 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 {
 	Logger::info(string(__FUNCSIG__));
 	Logger::info(std::to_string(FunctionId) + " - " + sItemString);
+	mouseLocation = Pt;
 
 	/* 	-----------------------------------------------------------------------------------------------
 	This function is seemingly called twice when coming from a popup edit box
 	Who the hell knows why... but it is quite problematic
+	Therefore, a hack variable is used to force the "after edit" function (here TAG_FUNC_STAND_EDITOR)
+	to be called only once.
 	
 	Also, both the CPlugIn AND the CRadarScreen versions of the function always get called together,
 	so technically (apparently) you could have the implementation of both into just one...
@@ -906,7 +912,20 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	----------------------------------------------------------------------------------------------- */
 	
 
-	mouseLocation = Pt;
+	if (FunctionId == TAG_FUNC_STAND_EDIT) {
+		CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
+		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, CSMRRadar::GetStandNumber(fp).c_str());
+		onFunctionCallDoubleCallHack = true;
+	}
+
+	if (FunctionId == TAG_FUNC_STAND_EDITOR) { // when finished editing
+		if (onFunctionCallDoubleCallHack) {
+			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
+			CSMRRadar::SetStandNumber(fp, sItemString);
+			onFunctionCallDoubleCallHack = false;
+		}
+	}
+
 	if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
 		int id = FunctionId - APPWINDOW_BASE;
 		appWindowDisplays[id] = !appWindowDisplays[id];
@@ -919,10 +938,17 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		SaveDataToAsr("Airport", "Active airport", ActiveAirport.c_str());
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_FONTSIZE) {
-		currentFontSize = atoi(sItemString);
-		LoadCustomFont();
-		ShowLists["Label Font Size"] = true;
+	if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDIT) {
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_FONTSIZE_EDITOR, std::to_string(currentFontSize).c_str());
+		onFunctionCallDoubleCallHack = true;
+	}
+
+	if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDITOR) {
+		if (onFunctionCallDoubleCallHack) {
+			currentFontSize = atoi(sItemString);
+			LoadCustomFont();
+			onFunctionCallDoubleCallHack = false;
+		}
 	}
 
 	if (FunctionId == RIMCAS_CUSTOM_CURSOR_TOGGLE) {
@@ -1278,7 +1304,7 @@ bool CSMRRadar::OnCompileCommand(const char * sCommandLine)
 	return false;
 }
 
-map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport)
+map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport)
 {
 	Logger::info(string(__FUNCSIG__));
 	// ----
@@ -1488,12 +1514,13 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 	}
 
 	// ----- Generating the replacing map -----
-	map<string, string> TagReplacingMap;
+	map<string, TagItem> TagMap;
 
 	// System ID for uncorrelated
-	TagReplacingMap["systemid"] = "T:";
+	TagMap["systemid"].value = "T:";
 	string tpss = rt.GetSystemID();
-	TagReplacingMap["systemid"].append(tpss.substr(1, 6));
+	TagMap["systemid"].value.append(tpss.substr(1, 6));
+	TagMap["systemid"].function = TAG_CITEM_GROUNDSTATUS;
 
 	// Pro mode data here
 	if (isProMode) {
@@ -1519,29 +1546,29 @@ map<string, string> CSMRRadar::GenerateTagData(CRadarTarget rt, CFlightPlan fp, 
 		*/
 	}
 
-	TagReplacingMap["callsign"] = callsign;
-	TagReplacingMap["actype"] = actype;
-	TagReplacingMap["sctype"] = sctype;
-	TagReplacingMap["sqerror"] = sqerror;
-	TagReplacingMap["deprwy"] = deprwy;
-	TagReplacingMap["seprwy"] = seprwy;
-	TagReplacingMap["arvrwy"] = arvrwy;
-	TagReplacingMap["srvrwy"] = srvrwy;
-	TagReplacingMap["gate"] = gate;
-	TagReplacingMap["sate"] = sate;
-	TagReplacingMap["flightlevel"] = flightlevel;
-	TagReplacingMap["gs"] = speed;
-	TagReplacingMap["speedarr"] = speedarr;
-	TagReplacingMap["tendency"] = tendency;
-	TagReplacingMap["wake"] = wake;
-	TagReplacingMap["ssr"] = tssr;
-	TagReplacingMap["asid"] = dep;
-	TagReplacingMap["ssid"] = ssid;
-	TagReplacingMap["origin"] = origin;
-	TagReplacingMap["dest"] = dest;
-	TagReplacingMap["groundstatus"] = gstat;
+	TagMap["callsign"]		= { callsign, TAG_CITEM_CALLSIGN };
+	TagMap["actype"]		= { actype, TAG_CITEM_FPBOX };
+	TagMap["sctype"]		= { sctype, TAG_CITEM_FPBOX };
+	TagMap["sqerror"]		= { sqerror, TAG_CITEM_FPBOX };
+	TagMap["deprwy"]		= { deprwy, TAG_CITEM_RWY };
+	TagMap["seprwy"]		= { seprwy, TAG_CITEM_RWY };
+	TagMap["arvrwy"]		= { arvrwy, TAG_CITEM_RWY };
+	TagMap["srvrwy"]		= { srvrwy, TAG_CITEM_RWY };
+	TagMap["gate"]			= { gate, TAG_CITEM_GATE };
+	TagMap["sate"]			= { sate, TAG_CITEM_GATE };
+	TagMap["flightlevel"]	= { flightlevel, TAG_CITEM_NO };
+	TagMap["gs"]			= { speed, TAG_CITEM_NO };
+	TagMap["speedarr"]		= { speedarr, TAG_CITEM_NO };
+	TagMap["tendency"]		= { tendency, TAG_CITEM_NO };
+	TagMap["wake"]			= { wake, TAG_CITEM_FPBOX };
+	TagMap["ssr"]			= { tssr, TAG_CITEM_NO };
+	TagMap["asid"]			= { dep, TAG_CITEM_SID };
+	TagMap["ssid"]			= { ssid,TAG_CITEM_SID };
+	TagMap["origin"]		= { origin, TAG_CITEM_FPBOX };
+	TagMap["dest"]			= { dest, TAG_CITEM_FPBOX };
+	TagMap["groundstatus"]	= { gstat, TAG_CITEM_GROUNDSTATUS };
 
-	return TagReplacingMap;
+	return TagMap;
 }
 
 void CSMRRadar::OnFlightPlanDisconnect(CFlightPlan FlightPlan)
@@ -1974,31 +2001,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			ColorTagType = TagTypes::Uncorrelated;
 		}
 
-		map<string, string> TagReplacingMap = GenerateTagData(rt, fp, this, ActiveAirport);
-
-		// ----- Generating the clickable map -----
-		map<string, int> TagClickableMap;
-		TagClickableMap[TagReplacingMap["callsign"]] = TAG_CITEM_CALLSIGN;
-		TagClickableMap[TagReplacingMap["actype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sctype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sqerror"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["deprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["seprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["arvrwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["srvrwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["gate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["sate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["flightlevel"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["gs"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["speedarr"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["tendency"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["wake"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["ssr"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["asid"]] = TagClickableMap[TagReplacingMap["ssid"]] = TAG_CITEM_SID;
-		TagClickableMap[TagReplacingMap["origin"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["dest"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["systemid"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["groundstatus"]] = TAG_CITEM_GROUNDSTATUS;
+		map<string, TagItem> TagMap = GenerateTagData(rt, fp, this, ActiveAirport);
 
 		//
 		// ----- Now the hard part, drawing (using gdi+) -------
@@ -2042,7 +2045,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		}
 
 		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()][def];
-		vector<vector<string>> ReplacedLabelLines;
+		vector<vector<TagItem>> ReplacedLabelLines;
 
 		if (!LabelLines.IsArray())
 			return;
@@ -2050,7 +2053,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
 
 			const Value& line = LabelLines[i];
-			vector<string> lineStringArray;
+			vector<TagItem> lineTagItemArray;
 
 			// Adds one line height
 			if (i == 0) {
@@ -2064,14 +2067,14 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 			for (unsigned int j = 0; j < line.Size(); j++) {
 				mesureRect = RectF(0, 0, 0, 0);
-				string element = line[j].GetString();
+				string tagKey = line[j].GetString();
 
-				for (auto& kv : TagReplacingMap)
-					replaceAll(element, kv.first, kv.second);
+				//for (auto& kv : TagReplacingMap)
+					//replaceAll(element, kv.first, kv.second);
 
-				lineStringArray.push_back(element);
+				lineTagItemArray.push_back(TagMap[tagKey]);
 
-				wstring wstr = wstring(element.begin(), element.end());
+				wstring wstr = wstring(TagMap[tagKey].value.begin(), TagMap[tagKey].value.end());
 				if (i == 0) {
 					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
 				}
@@ -2086,21 +2089,20 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 			TagWidth = max(TagWidth, TempTagWidth);
 
-			ReplacedLabelLines.push_back(lineStringArray);
+			ReplacedLabelLines.push_back(lineTagItemArray);
 		}
-		//TagHeight = TagHeight - 2;
-
+	
 		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]);
 		if (ColorTagType == TagTypes::Departure) {
-			if (!TagReplacingMap["asid"].empty() && CurrentConfig->isSidColorAvail(TagReplacingMap["asid"], ActiveAirport)) {
-				definedBackgroundColor = CurrentConfig->getSidColor(TagReplacingMap["asid"], ActiveAirport);
+			if (!TagMap["asid"].value.empty() && CurrentConfig->isSidColorAvail(TagMap["asid"].value, ActiveAirport)) {
+				definedBackgroundColor = CurrentConfig->getSidColor(TagMap["asid"].value, ActiveAirport);
 			}
 
-			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagReplacingMap["asid"].empty() && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nosid_color")) {
+			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagMap["asid"].value.empty() && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nosid_color")) {
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nosid_color"]);
 			}
 
-			if (TagReplacingMap["actype"] == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
+			if (TagMap["actype"].value == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nofpl_color"]);
 			}
 		}
@@ -2195,24 +2197,24 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		Gdiplus::REAL heightOffset = 0;
 		for (auto&& line : ReplacedLabelLines) {
 			Gdiplus::REAL widthOffset = 0;
-			for (auto&& element : line) {
+			for (auto&& tagItem : line) {
 				SolidBrush* color = &FontColor;
-				if (TagReplacingMap["sqerror"].size() > 0 && strcmp(element.c_str(), TagReplacingMap["sqerror"].c_str()) == 0)
+				if (TagMap["sqerror"].value.size() > 0 && strcmp(tagItem.value.c_str(), TagMap["sqerror"].value.c_str()) == 0)
 					color = &SquawkErrorColor;
 
 				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
 					color = &RimcasTextColor;
 
 				// Ground tag colors
-				if (strcmp(element.c_str(), "PUSH") == 0)
+				if (strcmp(tagItem.value.c_str(), "PUSH") == 0)
 					color = &GroundPushColor;
-				if (strcmp(element.c_str(), "TAXI") == 0)
+				if (strcmp(tagItem.value.c_str(), "TAXI") == 0)
 					color = &GroundTaxiColor;
-				if (strcmp(element.c_str(), "DEPA") == 0)
+				if (strcmp(tagItem.value.c_str(), "DEPA") == 0)
 					color = &GroundDepaColor;
 
 				RectF mRect(0, 0, 0, 0);
-				wstring welement = wstring(element.begin(), element.end());
+				wstring welement = wstring(tagItem.value.begin(), tagItem.value.end());
 
 				if (heightOffset == 0) { // first line
 					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
@@ -2234,7 +2236,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
 					(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
 
-				AddScreenObject(TagClickableMap[element], rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()).c_str());
+				AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()).c_str());
 
 				widthOffset += mRect.GetRight();
 				widthOffset += blankWidth;
@@ -2401,28 +2403,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		GetPlugIn()->AddPopupListElement("Night", "", RIMCAS_UPDATE_BRIGHNESS, false, int(!ColorSettingsDay));
 		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		ShowLists["Colour Settings"] = false;
-	}
-
-	if (ShowLists["Label Font Size"]) {
-		GetPlugIn()->OpenPopupList(ListAreas["Label Font Size"], "Label Font Size", 1);
-		GetPlugIn()->AddPopupListElement("5", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 5)));
-		GetPlugIn()->AddPopupListElement("6", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 6)));
-		GetPlugIn()->AddPopupListElement("7", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 7)));
-		GetPlugIn()->AddPopupListElement("8", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 8)));
-		GetPlugIn()->AddPopupListElement("9", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 9)));
-		GetPlugIn()->AddPopupListElement("10", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 10)));
-		GetPlugIn()->AddPopupListElement("11", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 11)));
-		GetPlugIn()->AddPopupListElement("12", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 12)));
-		GetPlugIn()->AddPopupListElement("13", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 13)));
-		GetPlugIn()->AddPopupListElement("14", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 14)));
-		GetPlugIn()->AddPopupListElement("15", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 15)));
-		GetPlugIn()->AddPopupListElement("16", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 16)));
-		GetPlugIn()->AddPopupListElement("17", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 17)));
-		GetPlugIn()->AddPopupListElement("18", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 18)));
-		GetPlugIn()->AddPopupListElement("19", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 19)));
-		GetPlugIn()->AddPopupListElement("20", "", RIMCAS_UPDATE_FONTSIZE, false, int(bool(currentFontSize == 20)));
-		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
-		ShowLists["Label Font Size"] = false;
 	}
 
 	if (ShowLists["GRND Trail Dots"]) {

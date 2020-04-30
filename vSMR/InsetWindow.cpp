@@ -393,30 +393,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 		// Drawing the tags, what a mess
 
 		// ----- Generating the replacing map -----
-		map<string, string> TagReplacingMap = CSMRRadar::GenerateTagData(rt, fp, radar_screen, icao);
-
-		// ----- Generating the clickable map -----
-		map<string, int> TagClickableMap;
-		TagClickableMap[TagReplacingMap["callsign"]] = TAG_CITEM_CALLSIGN;
-		TagClickableMap[TagReplacingMap["actype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sctype"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["sqerror"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["deprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["seprwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["arvrwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["srvrwy"]] = TAG_CITEM_RWY;
-		TagClickableMap[TagReplacingMap["gate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["sate"]] = TAG_CITEM_GATE;
-		TagClickableMap[TagReplacingMap["flightlevel"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["gs"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["tendency"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["wake"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["ssr"]] = TAG_CITEM_NO;
-		TagClickableMap[TagReplacingMap["sid"]] = TagClickableMap[TagReplacingMap["shid"]] = TAG_CITEM_SID;
-		TagClickableMap[TagReplacingMap["origin"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["dest"]] = TAG_CITEM_FPBOX;
-		TagClickableMap[TagReplacingMap["systemid"]] = TAG_CITEM_MANUALCORRELATE;
-		TagClickableMap[TagReplacingMap["gstatus"]] = TAG_CITEM_GROUNDSTATUS;
+		map<string, CSMRRadar::TagItem> TagMap = CSMRRadar::GenerateTagData(rt, fp, radar_screen, icao);
 
 		//
 		// ----- Now the hard part, drawing (using gdi+) -------
@@ -480,16 +457,15 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 		// get label lines definitions
 		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType).c_str()]["definition"];
-		vector<vector<string>> ReplacedLabelLines;
+		vector<vector<CSMRRadar::TagItem>> ReplacedLabelLines;
 
 		if (!LabelLines.IsArray())
 			return;
 
 		for (unsigned int i = 0; i < LabelLines.Size(); i++)
 		{
-
 			const Value& line = LabelLines[i];
-			vector<string> lineStringArray;
+			vector<CSMRRadar::TagItem> lineTagItemArray;
 
 			// Adds one line height
 			if (i == 0) {
@@ -504,14 +480,14 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 			for (unsigned int j = 0; j < line.Size(); j++)
 			{
 				mesureRect = RectF(0, 0, 0, 0);
-				string element = line[j].GetString();
+				string tagKey = line[j].GetString();
 
-				for (auto& kv : TagReplacingMap)
-					replaceAll(element, kv.first, kv.second);
+				//for (auto& kv : TagReplacingMap)
+				//replaceAll(element, kv.first, kv.second);
 
-				lineStringArray.push_back(element);
+				lineTagItemArray.push_back(TagMap[tagKey]);
 
-				wstring wstr = wstring(element.begin(), element.end());
+				wstring wstr = wstring(TagMap[tagKey].value.begin(), TagMap[tagKey].value.end());
 				if (i == 0) {
 					gdi->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
 				}
@@ -526,9 +502,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 			TagWidth = max(TagWidth, TempTagWidth);
 
-			ReplacedLabelLines.push_back(lineStringArray);
+			ReplacedLabelLines.push_back(lineTagItemArray);
 		}
-		TagHeight = TagHeight - 2;
 
 		// Pfiou, done with that, now we can draw the actual rectangle.
 
@@ -537,15 +512,15 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 		Color definedBackgroundColor = radar_screen->CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["background_color"]);
 		if (TagType == CSMRRadar::TagTypes::Departure) {
-			if (!TagReplacingMap["sid"].empty() && radar_screen->CurrentConfig->isSidColorAvail(TagReplacingMap["sid"], radar_screen->ActiveAirport)) {
-				definedBackgroundColor = radar_screen->CurrentConfig->getSidColor(TagReplacingMap["sid"], radar_screen->ActiveAirport);
+			if (!TagMap["sid"].value.empty() && radar_screen->CurrentConfig->isSidColorAvail(TagMap["sid"].value, radar_screen->ActiveAirport)) {
+				definedBackgroundColor = radar_screen->CurrentConfig->getSidColor(TagMap["sid"].value, radar_screen->ActiveAirport);
 			}
 
-			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagReplacingMap["asid"].empty() && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nosid_color")) {
+			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagMap["asid"].value.empty() && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nosid_color")) {
 				definedBackgroundColor = radar_screen->CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nosid_color"]);
 			}
 
-			if (TagReplacingMap["actype"] == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
+			if (TagMap["actype"].value == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
 				definedBackgroundColor = radar_screen->CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nofpl_color"]);
 			}
 		}
@@ -580,17 +555,17 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 			for (auto&& line : ReplacedLabelLines)
 			{
 				Gdiplus::REAL widthOffset = 0;
-				for (auto&& element : line)
+				for (auto&& tagItem : line)
 				{
 					SolidBrush* color = &FontColor;
-					if (TagReplacingMap["sqerror"].size() > 0 && strcmp(element.c_str(), TagReplacingMap["sqerror"].c_str()) == 0)
+					if (TagMap["sqerror"].value.size() > 0 && strcmp(tagItem.value.c_str(), TagMap["sqerror"].value.c_str()) == 0)
 						color = &SquawkErrorColor;
 
 					if (radar_screen->RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
 						color = &RimcasTextColor;
 
 					RectF mRect(0, 0, 0, 0);
-					wstring welement = wstring(element.begin(), element.end());
+					wstring welement = wstring(tagItem.value.begin(), tagItem.value.end());
 
 					if (heightOffset == 0) { // first line
 						gdi->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
@@ -612,7 +587,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
 						(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
 
-					radar_screen->AddScreenObject(TagClickableMap[element], rt.GetCallsign(), ItemRect, false, radar_screen->GetBottomLine(rt.GetCallsign()).c_str());
+					radar_screen->AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, false, radar_screen->GetBottomLine(rt.GetCallsign()).c_str());
 
 					widthOffset += mRect.GetRight();
 					widthOffset += blankWidth;
