@@ -478,7 +478,8 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		}
 	}
 
-	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS) {
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || 
+		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
 		if (!Released) {
@@ -869,13 +870,14 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		onFunctionCallDoubleCallHack = true;
 	}
 
-	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_SCRATCHPAD) {
+	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_SCRATCHPAD) { // We could use the default TAG_ITEM_FUNCTION_EDIT_SCRATCH_PAD, but that sets a default small size for the editing text window, which is a bit meh
 		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(fp);
 		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SCRATCHPAD_EDITOR, fp.GetControllerAssignedData().GetScratchPadString());
 		onFunctionCallDoubleCallHack = true;
 	}
 
+	
 	if (ObjectType == RIMCAS_DISTANCE_TOOL) {
 		vector<string> s = split(sObjectId, ',');
 		pair<string, string> toRemove = pair<string, string>(s.front(), s.back());
@@ -896,7 +898,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 	RequestRefresh();
 };
 
-void  CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button) {
+void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button) {
 	Logger::info(string(__FUNCSIG__));
 	mouseLocation = Pt;
 
@@ -945,6 +947,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
+
 	else if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
 		if (onFunctionCallDoubleCallHack) {
 			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
@@ -952,7 +955,6 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
-
 
 	else if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
 		int id = FunctionId - APPWINDOW_BASE;
@@ -1535,9 +1537,12 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	}
 
 	// ----- GSTAT -------
-	string gstat = "STS";
+	string gstat = "";
 	if (fp.IsValid() && isAcCorrelated) {
 		gstat = fp.GetGroundState();
+	}
+	if (gstat == "") {
+		gstat = "STS";
 	}
 
 	// ----- Scratchpad ------
@@ -1553,7 +1558,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	TagMap["systemid"].value = "T:";
 	string tpss = rt.GetSystemID();
 	TagMap["systemid"].value.append(tpss.substr(1, 6));
-	TagMap["systemid"].function = TAG_CITEM_GROUNDSTATUS;
+	TagMap["systemid"].function = TAG_CITEM_FPBOX;
 
 	// Pro mode data here
 	//if (isProMode) {
@@ -2165,6 +2170,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			Pen pw(ColorManager->get_corrected_color("label", Color::White));
 			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
 		}
+		if (TagMap["groundstatus"].value == "DEPA") { // White border if tag is departure
+			Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
+			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+		}
 
 		// Drawing the tag text
 
@@ -2172,6 +2181,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
 		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
 
+		/*
 		SolidBrush GroundPushColor(TagBackgroundColor);
 		SolidBrush GroundTaxiColor(TagBackgroundColor);
 		SolidBrush GroundDepaColor(TagBackgroundColor);
@@ -2180,6 +2190,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
 			GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
 		}
+		*/
 
 		// Drawing the leader line
 		RECT TagBackRectData = TagBackgroundRect;
@@ -2233,20 +2244,20 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			Gdiplus::REAL widthOffset = 0;
 			for (auto&& tagItem : line) {
 				SolidBrush* color = &FontColor;
-				if (TagMap["sqerror"].value.size() > 0 && strcmp(tagItem.value.c_str(), TagMap["sqerror"].value.c_str()) == 0)
+				if (TagMap["sqerror"].value.size() > 0 && tagItem.value == TagMap["sqerror"].value)
 					color = &SquawkErrorColor;
 
 				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
 					color = &RimcasTextColor;
 
 				// Ground tag colors
-				if (strcmp(tagItem.value.c_str(), "PUSH") == 0)
+				/*if (tagItem.value == "PUSH")
 					color = &GroundPushColor;
-				if (strcmp(tagItem.value.c_str(), "TAXI") == 0)
+				if (tagItem.value == "TAXI")
 					color = &GroundTaxiColor;
-				if (strcmp(tagItem.value.c_str(), "DEPA") == 0)
+				if (tagItem.value == "DEPA")
 					color = &GroundDepaColor;
-
+					*/
 				RectF mRect(0, 0, 0, 0);
 				wstring welement = wstring(tagItem.value.begin(), tagItem.value.end());
 				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);

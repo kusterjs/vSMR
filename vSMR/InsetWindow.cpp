@@ -557,7 +557,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 				for (auto&& tagItem : line)
 				{
 					SolidBrush* color = &FontColor;
-					if (TagMap["sqerror"].value.size() > 0 && strcmp(tagItem.value.c_str(), TagMap["sqerror"].value.c_str()) == 0)
+					if (TagMap["sqerror"].value.size() > 0 && tagItem.value == TagMap["sqerror"].value)
 						color = &SquawkErrorColor;
 
 					if (radar_screen->RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
