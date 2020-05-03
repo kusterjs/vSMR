@@ -296,6 +296,12 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		LoadCustomFont(); // update font size
 	}
 
+	if ((p_value = GetDataFromAsr("ProMode")) != NULL)
+		isProMode = atoi(p_value) == 1 ? true : false;
+
+	if ((p_value = GetDataFromAsr("AutoDeconfliction")) != NULL)
+		useAutoDeconfliction = atoi(p_value) == 1 ? true : false;
+
 	if ((p_value = GetDataFromAsr("Afterglow")) != NULL)
 		Afterglow = atoi(p_value) == 1 ? true : false;
 
@@ -344,6 +350,12 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		if ((p_value = GetDataFromAsr(string(prefix + "Rotation").c_str())) != NULL)
 			appWindows[i]->m_Rotation = atoi(p_value);
 
+		if ((p_value = GetDataFromAsr(string(prefix + "ExtendedLinesLength").c_str())) != NULL)
+			appWindows[i]->m_ExtendedLinesLength = atoi(p_value);
+
+		if ((p_value = GetDataFromAsr(string(prefix + "ExtendedLinesTickSpacing").c_str())) != NULL)
+			appWindows[i]->m_ExtendedLinesTickSpacing = atoi(p_value);
+
 		if ((p_value = GetDataFromAsr(string(prefix + "Display").c_str())) != NULL)
 			appWindowDisplays[i] = atoi(p_value) == 1 ? true : false;
 	}
@@ -356,20 +368,15 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	Logger::info(string(__FUNCSIG__));
 
 	SaveDataToAsr("Airport", "Active airport for RIMCAS", ActiveAirport.c_str());
-
 	SaveDataToAsr("ActiveProfile", "vSMR active profile", CurrentConfig->getActiveProfileName().c_str());
-
 	SaveDataToAsr("FontSize", "vSMR font size", std::to_string(currentFontSize).c_str());
-
 	SaveDataToAsr("Afterglow", "vSMR Afterglow enabled", std::to_string(int(Afterglow)).c_str());
-
 	SaveDataToAsr("AppTrailsDots", "vSMR APPR Trail Dots", std::to_string(Trail_App).c_str());
-
 	SaveDataToAsr("GndTrailsDots", "vSMR GRND Trail Dots", std::to_string(Trail_Gnd).c_str());
-
 	SaveDataToAsr("PredictedLine", "vSMR Predicted Track Lines", std::to_string(PredictedLenght).c_str());
-
+	SaveDataToAsr("ProMode", "vSMR Professional mode for correlation", std::to_string(isProMode).c_str());
 	SaveDataToAsr("CustomCursor", "vSMR Custom Mouse Cursor", std::to_string(useCustomCursor).c_str());
+	SaveDataToAsr("AutoDeconfliction", "vSMR Tag auto deconfliction", std::to_string(useAutoDeconfliction).c_str());
 
 	string temp = "";
 
@@ -377,31 +384,37 @@ void CSMRRadar::OnAsrContentToBeSaved()
 		string prefix = "SRW" + std::to_string(i);
 
 		temp = std::to_string(appWindows[i]->m_Area.left);
-		SaveDataToAsr(string(prefix + "TopLeftX").c_str(), "SRW position", temp.c_str());
+		SaveDataToAsr(string(prefix + "TopLeftX").c_str(),( prefix + " position").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Area.top);
-		SaveDataToAsr(string(prefix + "TopLeftY").c_str(), "SRW position", temp.c_str());
+		SaveDataToAsr(string(prefix + "TopLeftY").c_str(), (prefix + " position").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Area.right);
-		SaveDataToAsr(string(prefix + "BottomRightX").c_str(), "SRW position", temp.c_str());
+		SaveDataToAsr(string(prefix + "BottomRightX").c_str(), (prefix + " position").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Area.bottom);
-		SaveDataToAsr(string(prefix + "BottomRightY").c_str(), "SRW position", temp.c_str());
+		SaveDataToAsr(string(prefix + "BottomRightY").c_str(), (prefix + " position").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Offset.x);
-		SaveDataToAsr(string(prefix + "OffsetX").c_str(), "SRW offset", temp.c_str());
+		SaveDataToAsr(string(prefix + "OffsetX").c_str(), (prefix + " offset").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Offset.y);
-		SaveDataToAsr(string(prefix + "OffsetY").c_str(), "SRW offset", temp.c_str());
+		SaveDataToAsr(string(prefix + "OffsetY").c_str(), (prefix + " offset").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Filter);
-		SaveDataToAsr(string(prefix + "Filter").c_str(), "SRW filter", temp.c_str());
+		SaveDataToAsr(string(prefix + "Filter").c_str(), (prefix + " filter").c_str(), temp.c_str());
 
 		temp = std::to_string(appWindows[i]->m_Scale);
-		SaveDataToAsr(string(prefix + "Scale").c_str(), "SRW range", temp.c_str());
+		SaveDataToAsr(string(prefix + "Scale").c_str(), (prefix + " range").c_str(), temp.c_str());
 
 		temp = std::to_string((int)appWindows[i]->m_Rotation);
-		SaveDataToAsr(string(prefix + "Rotation").c_str(), "SRW rotation", temp.c_str());
+		SaveDataToAsr(string(prefix + "Rotation").c_str(), (prefix + " rotation").c_str(), temp.c_str());
+
+		temp = std::to_string(appWindows[i]->m_ExtendedLinesLength);
+		SaveDataToAsr(string(prefix + "ExtendedLinesLength").c_str(), (prefix + " extended line length").c_str(), temp.c_str());
+
+		temp = std::to_string(appWindows[i]->m_ExtendedLinesTickSpacing);
+		SaveDataToAsr(string(prefix + "ExtendedLinesTickSpacing").c_str(), (prefix + " extended line tick spacing").c_str(), temp.c_str());
 
 		string to_save = "0";
 		if (appWindowDisplays[i])
@@ -489,7 +502,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 			POINT AcPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(sObjectId).GetPosition().GetPosition());
 			POINT CustomTag = { TagCenterPix.x - AcPosPix.x, TagCenterPix.y - AcPosPix.y };
 
-			if (CurrentConfig->getActiveProfile()["labels"]["auto_deconfliction"].GetBool()) {
+			if (useAutoDeconfliction) {
 				double angle = RadToDeg(atan2(CustomTag.y, CustomTag.x));
 				angle = fmod(angle + 360, 360);
 				vector<double> angles;
@@ -925,14 +938,14 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		onFunctionCallDoubleCallHack = true;
 	}
 
-	if (FunctionId == TAG_FUNC_STAND_EDITOR) { // when finished editing
+	else if (FunctionId == TAG_FUNC_STAND_EDITOR) { // when finished editing
 		if (onFunctionCallDoubleCallHack) {
 			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
 			CSMRRadar::SetStandNumber(fp, sItemString);
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
-	if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
+	else if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
 		if (onFunctionCallDoubleCallHack) {
 			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
 			fp.GetControllerAssignedData().SetScratchPadString(sItemString);
@@ -941,24 +954,24 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	}
 
 
-	if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
+	else if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
 		int id = FunctionId - APPWINDOW_BASE;
 		appWindowDisplays[id] = !appWindowDisplays[id];
 	}
 
-	if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
+	else if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
 		ActiveAirport = sItemString;
 		LoadProfile(CurrentConfig->getActiveProfile()["name"].GetString());
 		ReloadActiveRunways();
 		SaveDataToAsr("Airport", "Active airport", ActiveAirport.c_str());
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDIT) {
+	else if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDIT) {
 		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_FONTSIZE_EDITOR, std::to_string(currentFontSize).c_str());
 		onFunctionCallDoubleCallHack = true;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDITOR) {
+	else if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDITOR) {
 		if (onFunctionCallDoubleCallHack) {
 			currentFontSize = atoi(sItemString);
 			LoadCustomFont();
@@ -966,7 +979,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		}
 	}
 
-	if (FunctionId == RIMCAS_CUSTOM_CURSOR_TOGGLE) {
+	else if (FunctionId == RIMCAS_CUSTOM_CURSOR_TOGGLE) {
 		useCustomCursor = !useCustomCursor;
 		if (useCustomCursor) {
 			mouseCursor = smrCursor;
@@ -977,12 +990,12 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		SMRSetCursor(mouseCursor);
 	}
 
-	if (FunctionId == RIMCAS_QDM_TOGGLE) {
+	else if (FunctionId == RIMCAS_QDM_TOGGLE) {
 		QDMenabled = !QDMenabled;
 		QDMSelectEnabled = false;
 	}
 
-	if (FunctionId == RIMCAS_QDM_SELECT_TOGGLE) {
+	else if (FunctionId == RIMCAS_QDM_SELECT_TOGGLE) {
 		if (!QDMSelectEnabled) {
 			QDMSelectPt = ConvertCoordFromPositionToPixel(AirportPositions[ActiveAirport]);
 		}
@@ -990,7 +1003,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		QDMenabled = false;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_PROFILE) {
+	else if (FunctionId == RIMCAS_UPDATE_PROFILE) {
 		this->CSMRRadar::LoadProfile(sItemString);
 		LoadCustomFont();
 		SaveDataToAsr("ActiveProfile", "vSMR active profile", sItemString);
@@ -998,24 +1011,24 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		ShowLists["Profiles"] = true;
 	}
 
-	if (FunctionId == RIMCAS_UPDATEFILTER1 || FunctionId == RIMCAS_UPDATEFILTER2) {
+	else if (FunctionId == RIMCAS_UPDATEFILTER1 || FunctionId == RIMCAS_UPDATEFILTER2) {
 		int id = FunctionId - RIMCAS_UPDATEFILTER;
 		if (startsWith("UNL", sItemString))
 			sItemString = "66000";
 		appWindows[id]->m_Filter = atoi(sItemString);
 	}
 
-	if (FunctionId == RIMCAS_UPDATERANGE1 || FunctionId == RIMCAS_UPDATERANGE2) {
+	else if (FunctionId == RIMCAS_UPDATERANGE1 || FunctionId == RIMCAS_UPDATERANGE2) {
 		int id = FunctionId - RIMCAS_UPDATERANGE;
 		appWindows[id]->m_Scale = atoi(sItemString);
 	}
 
-	if (FunctionId == RIMCAS_UPDATEROTATE1 || FunctionId == RIMCAS_UPDATEROTATE2) {
+	else if (FunctionId == RIMCAS_UPDATEROTATE1 || FunctionId == RIMCAS_UPDATEROTATE2) {
 		int id = FunctionId - RIMCAS_UPDATEROTATE;
 		appWindows[id]->m_Rotation = atoi(sItemString);
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_BRIGHNESS) {
+	else if (FunctionId == RIMCAS_UPDATE_BRIGHNESS) {
 		if (strcmp(sItemString, "Day") == 0)
 			ColorSettingsDay = true;
 		else
@@ -1026,7 +1039,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_CA_ARRIVAL_FUNC) {
+	else if (FunctionId == RIMCAS_CA_ARRIVAL_FUNC) {
 		RimcasInstance->ToggleMonitoredRunwayArr(string(sItemString));
 
 		ShowLists["Conflict Alert ARR"] = true;
@@ -1034,7 +1047,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_CA_DEPARTURE_FUNC) {
+	else if (FunctionId == RIMCAS_CA_DEPARTURE_FUNC) {
 		RimcasInstance->ToggleMonitoredRunwayDep(string(sItemString));
 
 		ShowLists["Conflict Alert DEP"] = true;
@@ -1042,7 +1055,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_CLOSED_RUNWAYS_FUNC) {
+	else if (FunctionId == RIMCAS_CLOSED_RUNWAYS_FUNC) {
 		RimcasInstance->ToggleClosedRunway(string(sItemString));
 
 		ShowLists["Runway closed"] = true;
@@ -1050,7 +1063,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_OPEN_LIST) {
+	else if (FunctionId == RIMCAS_OPEN_LIST) {
 
 		ShowLists[string(sItemString)] = true;
 		ListAreas[string(sItemString)] = Area;
@@ -1058,7 +1071,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_LVP) {
+	else if (FunctionId == RIMCAS_UPDATE_LVP) {
 		if (strcmp(sItemString, "Normal") == 0)
 			isLVP = false;
 		if (strcmp(sItemString, "Low") == 0)
@@ -1069,44 +1082,44 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		RequestRefresh();
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_AFTERGLOW) {
+	else if (FunctionId == RIMCAS_UPDATE_AFTERGLOW) {
 		Afterglow = !Afterglow;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_GND_TRAIL) {
+	else if (FunctionId == RIMCAS_UPDATE_GND_TRAIL) {
 		Trail_Gnd = atoi(sItemString);
 
 		ShowLists["GRND Trail Dots"] = true;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_APP_TRAIL) {
+	else if (FunctionId == RIMCAS_UPDATE_APP_TRAIL) {
 		Trail_App = atoi(sItemString);
 
 		ShowLists["APPR Trail Dots"] = true;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_PTL) {
+	else if (FunctionId == RIMCAS_UPDATE_PTL) {
 		PredictedLenght = atoi(sItemString);
 
 		ShowLists["Predicted Track Line"] = true;
 	}
 
-	if (FunctionId == RIMCAS_BRIGHTNESS_LABEL) {
+	else if (FunctionId == RIMCAS_BRIGHTNESS_LABEL) {
 		ColorManager->update_brightness("label", std::atoi(sItemString));
 		ShowLists["Label"] = true;
 	}
 
-	if (FunctionId == RIMCAS_BRIGHTNESS_AFTERGLOW) {
+	else if (FunctionId == RIMCAS_BRIGHTNESS_AFTERGLOW) {
 		ColorManager->update_brightness("afterglow", std::atoi(sItemString));
 		ShowLists["Afterglow"] = true;
 	}
 
-	if (FunctionId == RIMCAS_BRIGHTNESS_SYMBOL) {
+	else if (FunctionId == RIMCAS_BRIGHTNESS_SYMBOL) {
 		ColorManager->update_brightness("symbol", std::atoi(sItemString));
 		ShowLists["Symbol"] = true;
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_RELEASE) {
+	else if (FunctionId == RIMCAS_UPDATE_RELEASE) {
 		ReleaseInProgress = !ReleaseInProgress;
 		if (ReleaseInProgress)
 			AcquireInProgress = false;
@@ -1115,7 +1128,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		CorrelateCursor();
 	}
 
-	if (FunctionId == RIMCAS_UPDATE_ACQUIRE) {
+	else if (FunctionId == RIMCAS_UPDATE_ACQUIRE) {
 		AcquireInProgress = !AcquireInProgress;
 		if (AcquireInProgress)
 			ReleaseInProgress = false;
@@ -1346,8 +1359,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	// dest: destination aerodrome
 	// ----
 
-	bool isAcCorrelated = radar->IsCorrelated(fp, rt);
-	bool isProMode = radar->CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool();
+	bool isAcCorrelated = radar->IsCorrelated(fp, rt);	
 	int TransitionAltitude = radar->GetPlugIn()->GetTransitionAltitude();
 	//bool useSpeedForGates = radar->CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool();
 
@@ -1404,10 +1416,10 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 
 	// ----- Aircraft type -------
 
-	string actype = "NoFPL";
+	string actype = "      ";
 	if (fp.IsValid() && fp.GetFlightPlanData().IsReceived())
 		actype = fp.GetFlightPlanData().GetAircraftFPType();
-	if (actype.size() > 4 && actype != "NoFPL")
+	if (actype.size() > 4 && actype != "      ")
 		actype = actype.substr(0, 4);
 
 	// ----- Aircraft type that changes to squawk error -------
@@ -1454,7 +1466,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	}
 
 	if (gate.size() == 0 || gate == "0" || !isAcCorrelated)
-		gate = "NoGATE";
+		gate = "           ";
 
 	// ----- Gate that changes to speed -------
 	string sate = gate;
@@ -1531,7 +1543,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	// ----- Scratchpad ------
 	string scratchpad = fp.GetControllerAssignedData().GetScratchPadString();
 	if (scratchpad.length() == 0) {
-		scratchpad = "_______";
+		scratchpad = "                          ";
 	}
 
 	// ----- Generating the replacing map -----
@@ -1544,7 +1556,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	TagMap["systemid"].function = TAG_CITEM_GROUNDSTATUS;
 
 	// Pro mode data here
-	if (isProMode) {
+	//if (isProMode) {
 		/*
 		if (isAirborne && !isAcCorrelated) {
 			callsign = tssr;
@@ -1565,7 +1577,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 			callsign = TagReplacingMap["systemid"];
 		}
 		*/
-	}
+	//}
 
 	TagMap["callsign"]		= { callsign, TAG_CITEM_CALLSIGN };
 	TagMap["actype"]		= { actype, TAG_CITEM_FPBOX };
@@ -1637,7 +1649,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		Logger::info("Phase == REFRESH_PHASE_AFTER_LISTS");
 		if (!ColorSettingsDay) {
 			// Creating the gdi+ graphics
-			Graphics graphics(hDC);
+			Gdiplus::Graphics graphics(hDC);
 			graphics.SetPageUnit(Gdiplus::UnitPixel);
 			graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
@@ -1704,7 +1716,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
     ExcludeClipRect(dc, GetChatArea().left, GetChatArea().top, GetChatArea().right, GetChatArea().bottom);
 
 	// Creating the gdi+ graphics
-	Graphics graphics(hDC);
+	Gdiplus::Graphics graphics(hDC);
 	graphics.SetPageUnit(Gdiplus::UnitPixel);
 	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
@@ -2124,7 +2136,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nosid_color"]);
 			}
 
-			if (TagMap["actype"].value == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
+			if (TagMap["actype"].value == "     " && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nofpl_color"]);
 			}
 		}
@@ -2203,7 +2215,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				// Drawing the text
 
 				wstring rimcasw = wstring(L"ALERT");
-				StringFormat stformat = new StringFormat();
+				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
 				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
 				graphics.DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
 			}
@@ -2237,22 +2249,23 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 				RectF mRect(0, 0, 0, 0);
 				wstring welement = wstring(tagItem.value.begin(), tagItem.value.end());
+				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
 
 				if (heightOffset == 0) { // first line
 					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
 						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&Gdiplus::StringFormat(), color);
-
+						&stformat, color);
+					
 					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
+						PointF(0, 0), &stformat, &mRect);
 				}
 				else {
 					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
 						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&Gdiplus::StringFormat(), color);
+						&stformat, color);
 
 					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
-						PointF(0, 0), &Gdiplus::StringFormat(), &mRect);
+						PointF(0, 0), &stformat, &mRect);
 				}
 
 				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
@@ -2637,7 +2650,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	Logger::info("Tag deconfliction loop");
 
 	for (const auto areas : tagAreas) {
-		if (!CurrentConfig->getActiveProfile()["labels"]["auto_deconfliction"].GetBool())
+		if (!useAutoDeconfliction)
 			break;
 
 		if (TagsOffsets.find(areas.first) != TagsOffsets.end())

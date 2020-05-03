@@ -197,7 +197,6 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 		if (startsWith(icao.c_str(), rwy.GetAirportName()))
 		{
-
 			CPen RunwayPen(PS_SOLID, 1, radar_screen->CurrentConfig->getConfigColorRef(radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["runway_color"]));
 			CPen ExtendedCentreLinePen(PS_SOLID, 1, radar_screen->CurrentConfig->getConfigColorRef(radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["extended_lines_color"]));
 			CPen* oldPen = dc.SelectObject(&RunwayPen);
@@ -232,10 +231,10 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					
 
 				double reverseHeading = RadToDeg(TrueBearing(OtherEnd, Threshold));
-				double lenght = double(radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["extended_lines_length"].GetDouble()) * 1852.0;
+				double length = m_ExtendedLinesLength * 1852.0;
 
 				// Drawing the extended centreline
-				CPosition endExtended = BetterHarversine(Threshold, reverseHeading, lenght);
+				CPosition endExtended = BetterHarversine(Threshold, reverseHeading, length);
 
 				Pt1 = projectPoint(Threshold);
 				Pt2 = projectPoint(endExtended);
@@ -247,9 +246,9 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 				}
 
 				// Drawing the ticks
-				int increment = radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["extended_lines_ticks_spacing"].GetInt() * 1852;
+				int increment = m_ExtendedLinesTickSpacing * 1852;
 
-				for (int j = increment; j <= int(radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["extended_lines_length"].GetInt() * 1852); j += increment) {
+				for (int j = increment; j <= int(m_ExtendedLinesLength * 1852.0); j += increment) {
 
 					CPosition tickPosition = BetterHarversine(Threshold, reverseHeading, j);
 					CPosition tickBottom = BetterHarversine(tickPosition, fmod(reverseHeading - 90, 360), 500);
@@ -520,7 +519,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 				definedBackgroundColor = radar_screen->CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nosid_color"]);
 			}
 
-			if (TagMap["actype"].value == "NoFPL" && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
+			if (TagMap["actype"].value == "     " && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
 				definedBackgroundColor = radar_screen->CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nofpl_color"]);
 			}
 		}

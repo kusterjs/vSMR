@@ -127,6 +127,8 @@ public:
 
 	map<string, CPosition> AirportPositions;
 
+	bool isProMode = false;
+	bool useAutoDeconfliction = false;
 	bool Afterglow = true;
 
 	int Trail_Gnd = 4;
@@ -158,15 +160,15 @@ public:
 
 	bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
 	{		
-		if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["enable"].GetBool()) {
+		if (isProMode) {
 			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
 				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0) {
 					return true;
 				}
 
-				if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool()) {
+				/*if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool()) {
 					return true;
-				}
+				}*/
 
 				ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
 				if (strcmp(rt.GetPosition().GetSquawk(), "1000") == 0) { // squawk 1000
