@@ -5,12 +5,14 @@
 #include <set>
 #include <queue>
 #include <map>
-#include <string>
 #include <algorithm>
 #define _USE_MATH_DEFINES
 #include <math.h>
-#include "Constant.hpp"
 #include <functional>
+
+#include "bstrlib\bstrwrap.h"
+
+#include "Constant.hpp"
 #include "Logger.h"
 
 class CSMRRadar;
@@ -25,7 +27,7 @@ public:
 	CRimcas();
 	virtual ~CRimcas();
 
-	const string string_false = "!NO";
+	//const CBString string_false = "!NO";
 
 	/*struct RunwayAreaType {
 		string Name = "";
@@ -43,9 +45,9 @@ public:
 
 	struct Runway
 	{
-		string name;
+		CBString name;
 		bool closed = false;
-		string rwyInUse; // which axis is in use
+		CBString rwyInUse; // which axis is in use
 		bool monitor_dep;
 		bool monitor_arr;
 		vector<CPosition> path;
@@ -55,7 +57,7 @@ public:
 
 	struct IAW_Aircraft
 	{
-		string callsign;
+		CBString callsign;
 		double time;
 		double distance;
 		pair<COLORREF, COLORREF> colors;
@@ -85,17 +87,17 @@ public:
 	};
 
 	//map<string, RunwayAreaType> RunwayAreas;
-	multimap<string, string> AcOnRunway;
+	multimap<CBString, CBString> AcOnRunway;
 	vector<int> CountdownDefinition;
 	vector<int> CountdownDefinitionLVP;
-	multimap<string, string> ApproachingAircrafts;
-	map<string, map<int, string>> _TimeTable;
-	map<string, set<IAW_Aircraft>> IAWQueue;
-	map<string, pair<COLORREF, COLORREF>> IAWQueueColors; // maps callsign to IAW color, I don't have any better idea so far...
+	multimap<CBString, CBString> ApproachingAircrafts;
+	map<CBString, map<int, string>> _TimeTable;
+	map<CBString, set<IAW_Aircraft>> IAWQueue;
+	map<CBString, pair<COLORREF, COLORREF>> IAWQueueColors; // maps callsign to IAW color, I don't have any better idea so far...
 	vector<Runway> Runways;
 	//map<string, bool> MonitoredRunwayDep;
 	//map<string, bool> MonitoredRunwayArr;
-	map<string, RimcasAlertTypes> AcColor;
+	map<CBString, RimcasAlertTypes> AcColor;
 
 	bool IsLVP = false;
 
@@ -163,10 +165,10 @@ public:
 	//string _GetAcInRunwayAreaSoon(CRadarTarget Ac, CRadarScreen *instance, bool isCorrelated);
 	void GetAcInRunwayAreaSoonDistance(CRadarTarget Ac, CRadarScreen *instance);
 	//void AddRunwayArea(CRadarScreen *instance, string Name, vector<CPosition> Definition);
-	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo);
-	Color GetAircraftColor(string AcCallsign, Color StandardColor, Color OnRunwayColor);
+	Color GetAircraftColor(CBString AcCallsign, Color StandardColor, Color OnRunwayColor, Color RimcasStageOne, Color RimcasStageTwo);
+	Color GetAircraftColor(CBString AcCallsign, Color StandardColor, Color OnRunwayColor);
 
-	bool isAcOnRunway(string callsign);
+	bool isAcOnRunway(CBString callsign);
 
 	vector<CPosition> GetRunwayArea(CPosition Left, CPosition Right, float hwidth = 92.5f);
 
@@ -175,9 +177,9 @@ public:
 	void OnRefreshEnd(CRadarScreen *instance, int threshold);
 	void Reset();
 
-	RimcasAlertTypes getAlert(string callsign);
+	RimcasAlertTypes getAlert(CBString callsign);
 
-	void ToggleClosedRunway(string name)
+	void ToggleClosedRunway(CBString name)
 	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
@@ -187,7 +189,7 @@ public:
 		}
 	}
 
-	void ToggleMonitoredRunwayDep(string name)
+	void ToggleMonitoredRunwayDep(CBString name)
 	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {
@@ -197,7 +199,7 @@ public:
 		}
 	}
 
-	void ToggleMonitoredRunwayArr(string name)
+	void ToggleMonitoredRunwayArr(CBString name)
 	{
 		for (auto &runway : Runways) {
 			if (runway.name == name) {

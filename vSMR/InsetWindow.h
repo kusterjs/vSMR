@@ -1,8 +1,8 @@
 #pragma once
 #include "SMRRadar.hpp"
 #include "EuroScopePlugIn.h"
-#include <string>
 #include <map>
+#include <bstrlib\bstrwrap.h>
 #include "Logger.h"
 
 using namespace std;
@@ -25,14 +25,14 @@ public:
 
 	map<string, double> m_TagAngles;
 
-	virtual void render(HDC Hdc, CSMRRadar * radar_screen, Graphics* gdi, POINT mouseLocation, multimap<string, string> DistanceTools);
-	virtual void setAirport(string icao);
+	virtual void render(HDC Hdc, CSMRRadar * radar_screen, Graphics* gdi, POINT mouseLocation, multimap<CBString, CBString> DistanceTools);
+	virtual void setAirport(CBString icao);
 	virtual POINT projectPoint(CPosition pos);
 	virtual void OnClickScreenObject(const char * sItemString, POINT Pt, int Button);
 	virtual bool OnMoveScreenObject(const char * sObjectId, POINT Pt, RECT Area, bool released);
 	
 private:
-	string icao;
-	map<string, CPosition> AptPositions;
+	CBString icao;
+	map<CBString, CPosition> AptPositions;
 };
 

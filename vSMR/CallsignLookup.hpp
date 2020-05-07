@@ -1,21 +1,21 @@
 #pragma once
 #include <fstream>
-#include <string>
 #include <sstream>
 #include <map>
+#include "bstrlib\bstrwrap.h"
 
 using namespace std;
 
 class CCallsignLookup
 {
 private:
-	std::map<string, string> callsigns;
+	std::map<CBString, CBString> callsigns;
 
 
 public:
 
-	CCallsignLookup(string fileName);
-	string getCallsign(string airlineCode);
+	CCallsignLookup(CBString fileName);
+	CBString getCallsign(CBString airlineCode);
 
 	~CCallsignLookup();
 };

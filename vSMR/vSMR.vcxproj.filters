@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="bstrlib">
+      <UniqueIdentifier>{142b5bef-9fdb-441d-b724-d32be65b3883}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -50,6 +53,12 @@
     </ClCompile>
     <ClCompile Include="InsetWindow.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\include\bstrlib\bstrlib.c">
+      <Filter>bstrlib</Filter>
+    </ClCompile>
+    <ClCompile Include="..\lib\include\bstrlib\bstrwrap.cpp">
+      <Filter>bstrlib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -121,6 +130,12 @@
     </ClInclude>
     <ClInclude Include="Logger.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\lib\include\bstrlib\bstrlib.h">
+      <Filter>bstrlib</Filter>
+    </ClInclude>
+    <ClInclude Include="..\lib\include\bstrlib\bstrwrap.h">
+      <Filter>bstrlib</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

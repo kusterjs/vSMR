@@ -1,17 +1,17 @@
 #pragma once
-#include <string>
 #include <curl\curl.h>
 #include <curl\easy.h>
+#include "bstrlib\bstrwrap.h"
 
 class HttpHelper
 {
 private:
-	static std::string downloadedContents;
+	static CBString downloadedContents;
 	static size_t handle_data(void *ptr, size_t size, size_t nmemb, void *stream);
 
 public:
 	HttpHelper();
-	std::string downloadStringFromURL(std::string url);
+	CBString downloadStringFromURL(CBString url);
 	~HttpHelper();
 
 };

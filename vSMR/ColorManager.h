@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include <GdiPlus.h>
 #include <map>
-#include <string>
+#include "bstrlib\bstrwrap.h"
 
 using namespace std;
 
@@ -9,7 +9,7 @@ using namespace std;
 class CColorManager
 {
 protected:
-	map<string, int> ColorSettings;
+	map<CBString, int> ColorSettings;
 public:
 	CColorManager()
 	{
@@ -22,19 +22,19 @@ public:
 		ColorSettings.clear();
 	};
 
-	void update_brightness(string id, int value)
+	void update_brightness(CBString id, int value)
 	{
 		ColorSettings[id] = min(bounds_high(), max(bounds_low(), value));
 	};
 
-	int get_brightness(string id)
+	int get_brightness(CBString id)
 	{
 		if (ColorSettings.find(id) != ColorSettings.end())
 			return ColorSettings[id];
 		return 100;
 	};
 
-	virtual Gdiplus::Color get_corrected_color(string id, Gdiplus::Color color)
+	virtual Gdiplus::Color get_corrected_color(CBString id, Gdiplus::Color color)
 	{
 		if (get_brightness(id) == 100)
 			return color;

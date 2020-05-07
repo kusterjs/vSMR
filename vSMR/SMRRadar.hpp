@@ -1,6 +1,7 @@
 #pragma once
 #include <EuroScopePlugIn.h>
-#include <string>
+#include "bstrlib/bstrwrap.h"
+
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -46,12 +47,12 @@ public:
 	CSMRRadar();
 	virtual ~CSMRRadar();
 
-	static set<string> manuallyCorrelated;
-	static map<string, string> vStripsStands;
+	static set<CBString> manuallyCorrelated;
+	static map<CBString, CBString> vStripsStands;
 
 	bool BLINK = false;
 
-	map<string, POINT> TagsOffsets;
+	map<CBString, POINT> TagsOffsets;
 
 	//vector<string> Active_Arrivals;
 
@@ -64,7 +65,7 @@ public:
 
 	struct TagItem
 	{
-		string value;
+		CBString value;
 		int function;
 	};
 
@@ -96,21 +97,19 @@ public:
 
 	map<string, bool> ClosedRunway;
 
-	char DllPathFile[_MAX_PATH];
-	string DllPath;
-	string ConfigPath;
+	CBString ConfigPath;
 	CCallsignLookup * Callsigns;
 	CColorManager * ColorManager;
 
-	map<string, bool> ShowLists;
-	map<string, RECT> ListAreas;
+	map<CBString, bool> ShowLists;
+	map<CBString, RECT> ListAreas;
 
 	map<int, bool> appWindowDisplays;
 
-	set<string> tagDetailed;
-	map<string, CRect> tagAreas;
-	map<string, double> TagAngles;
-	map<string, int> TagLeaderLineLength;
+	set<CBString> tagDetailed;
+	map<CBString, CRect> tagAreas;
+	map<CBString, double> TagAngles;
+	map<CBString, int> TagLeaderLineLength;
 
 	bool QDMenabled = false;
 	bool QDMSelectEnabled = false;
@@ -120,18 +119,18 @@ public:
 	bool ColorSettingsDay = true;
 	bool isLVP = false;
 
-	map<string, RECT> TimePopupAreas;
+	map<CBString, RECT> TimePopupAreas;
 
-	map<int, string> TimePopupData;
+	map<int, CBString> TimePopupData;
 	//multimap<string, string> AcOnRunway;
-	map<string, bool> ColorAC;
+	map<CBString, bool> ColorAC;
 
 	//map<string, CRimcas::RunwayAreaType> RunwayAreas;
 
-	map<string, RECT> MenuPositions;
-	map<string, bool> DisplayMenu;
+	map<CBString, RECT> MenuPositions;
+	map<CBString, bool> DisplayMenu;
 
-	map<string, clock_t> RecentlyAutoMovedTags;
+	map<CBString, clock_t> RecentlyAutoMovedTags;
 
 	CRimcas * RimcasInstance = nullptr;
 	CConfig * CurrentConfig = nullptr;
@@ -139,7 +138,7 @@ public:
 	Gdiplus::Font* customFont;
 	int currentFontSize = 15;
 
-	map<string, CPosition> AirportPositions;
+	map<CBString, CPosition> AirportPositions;
 
 	bool isProMode = false;
 	bool useAutoDeconfliction = false;
@@ -153,9 +152,9 @@ public:
 	bool ReleaseInProgress = false;
 	bool AcquireInProgress = false;
 
-	multimap<string, string> DistanceTools;
+	multimap<CBString, CBString> DistanceTools;
 	bool DistanceToolActive = false;
-	pair<string, string> ActiveDistance;
+	pair<CBString, CBString> ActiveDistance;
 
 	//----
 	// Tag types
@@ -163,12 +162,12 @@ public:
 
 	enum TagTypes { Departure, Arrival, Airborne, Uncorrelated };
 
-	string ActiveAirport = "LSZH";
+	CBString ActiveAirport = "LSZH";
 
 
 	//---GenerateTagData--------------------------------------------
 
-	static map<string, TagItem> GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, string ActiveAirport);
+	static map<CBString, TagItem> GenerateTagData(CRadarTarget rt, CFlightPlan fp, CSMRRadar* radar, CBString ActiveAirport);
 
 	//---IsCorrelatedFuncs---------------------------------------------
 
@@ -219,7 +218,7 @@ public:
 		}
 	};
 
-	static string GetStandNumber(CFlightPlan fp)
+	static CBString GetStandNumber(CFlightPlan fp)
 	{
 		if (!fp.IsValid())
 			return "";
@@ -235,30 +234,31 @@ public:
 		return "";
 	}
 
-	static void SetStandNumber(CFlightPlan fp, string stand)
+	static void SetStandNumber(CFlightPlan fp, CBString stand)
 	{
 		if (!fp.IsValid())
 			return;
 
-		string remarks = fp.GetFlightPlanData().GetRemarks();
+		CBString remarks = fp.GetFlightPlanData().GetRemarks();
 
-		size_t pos1 = remarks.find(" STAND/");
+		int pos1 = remarks.find(" STAND/");
 		if (pos1 < remarks.length()) { // contains a stand already
-			size_t pos2 = remarks.find_first_of(" \r\n\0", pos1+1);
+			int pos2 = remarks.find('\0', pos1+1);
+			assert(false);
 
 			if (stand == "") { // remove it
-				remarks.erase(pos1, pos2 - pos1 + 1);
+				remarks.remove(pos1, pos2 - pos1 + 1);
 			}
 			else { // update it
 				remarks.replace(pos1, pos2 - pos1 + 1, " STAND/" + stand);
 			}
 		}
 
-		else { // ne entry -> add it
+		else { // no entry -> add it
 			remarks += " STAND/" + stand;
 		}
 
-		fp.GetFlightPlanData().SetRemarks(remarks.c_str());
+		fp.GetFlightPlanData().SetRemarks(remarks);
 		fp.GetFlightPlanData().AmendFlightPlan();
 	}
 
@@ -295,7 +295,7 @@ public:
 
 	void CorrelateCursor();
 	void LoadCustomFont();
-	void LoadProfile(string profileName);
+	void LoadProfile(CBString profileName);
 
 	virtual void OnAsrContentLoaded(bool Loaded);
 	virtual void OnAsrContentToBeSaved();
@@ -366,7 +366,7 @@ public:
 
 	//---GetBottomLine---------------------------------------------
 
-	virtual string GetBottomLine(const char * Callsign);
+	virtual CBString GetBottomLine(const char * Callsign);
 
 	void ReloadActiveRunways();
 

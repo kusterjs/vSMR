@@ -1,7 +1,6 @@
 #pragma once
 
 #include "stdafx.h"
-#include <string>
 #include "EuroScopePlugIn.h"
 #define _USE_MATH_DEFINES
 // ReSharper disable once CppUnusedIncludeDirective
@@ -9,6 +8,8 @@
 #include <vector>
 #include <sstream>
 #include <iomanip>
+
+#include "bstrlib\bstrwrap.h"
 
 #define VSTRIPS_PORT 53487
 
@@ -30,11 +31,16 @@ const int TAG_FUNC_SCRATCHPAD_EDITOR = 602;
 
 
 
-inline static bool startsWith(const char *pre, const char *str)
+inline static bool StartsWith(const char *pre, const char *str)
 {
 	size_t lenpre = strlen(pre), lenstr = strlen(str);
 	return lenstr < lenpre ? false : strncmp(pre, str, lenpre) == 0;
 };
+
+inline static std::wstring ToWString(CBString source) {	
+	std::wstring wide(&source.data[0], &source.data[source.slen]);
+	return wide;
+}
 
 /*
 inline static void replaceAll(string& source, const string& from, const string& to)
@@ -64,7 +70,8 @@ inline static Gdiplus::Rect CopyRect(CRect &rect)
 	return Gdiplus::Rect(rect.left, rect.top, rect.Width(), rect.Height());
 };
 
-inline static std::vector<std::string> &split(const std::string &s, char delim, std::vector<std::string> &elems) {
+/*
+inline static std::vector<CBString> &split(const CBString &s, char delim, std::vector<CBString> &elems) {
 	std::stringstream ss(s);
 	std::string item;
 	while (std::getline(ss, item, delim)) {
@@ -77,6 +84,7 @@ inline static std::vector<std::string> split(const std::string &s, char delim) {
 	split(s, delim, elems);
 	return elems;
 };
+*/
 
 inline static double TrueBearing(CPosition pos1, CPosition pos2)
 {
@@ -267,13 +275,14 @@ inline static CPosition BetterHarversine(CPosition init, double angle, double me
 	return newPos;
 };
 
+/*
 inline static string padWithZeros(int padding, int s)
 {
 	stringstream ss;
 	ss << setfill('0') << setw(padding) << s;
 	return ss.str();
 };
-
+*/
 //
 
 const int DRAWING_TAG = 1211;

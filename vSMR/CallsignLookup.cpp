@@ -5,7 +5,7 @@
 // CCallsignLookup Class by Even Rognlien, used with permission
 //
 
-CCallsignLookup::CCallsignLookup(std::string fileName) {
+CCallsignLookup::CCallsignLookup(CBString fileName) {
 
 
 	ifstream myfile;
@@ -13,7 +13,7 @@ CCallsignLookup::CCallsignLookup(std::string fileName) {
 	myfile.open(fileName);
 
 	if (myfile) {
-		string line;
+		CBString line;
 		stringstream sstream;
 
 		while (getline(myfile, line)) {
@@ -21,25 +21,23 @@ CCallsignLookup::CCallsignLookup(std::string fileName) {
 			if (line[0] == ';') // ignore comments
 				continue;
 
-			string key;
-			string value;
+			CBString key;
+			CBString value;
 
-			std::string delimiter = "\t";
-			std::string token;
+			char delimiter = '\t';
+			CBString token;
 
 			size_t pos1 = line.find(delimiter);
-			key = line.substr(0, pos1);
-			line.erase(0, pos1 + delimiter.length());
+			key = line.midstr(0, pos1);
+			line.remove(0, pos1 + 1);
 
 			size_t pos2 = line.find(delimiter);
-			line.erase(0, pos2 + delimiter.length());
+			line.remove(0, pos2 + 1);
 
 			size_t pos3 = line.find(delimiter);
-			value = line.substr(0, pos3);
+			value = line.midstr(0, pos3);
 
-			for (unsigned int i = 0; i < value.size(); i++)
-				value[i] = toupper(value[i]);
-
+			value.toupper();
 			callsigns[key] = value;
 		}
 	}
@@ -47,7 +45,7 @@ CCallsignLookup::CCallsignLookup(std::string fileName) {
 	myfile.close();
 }
 
-string CCallsignLookup::getCallsign(string airlineCode) {
+CBString CCallsignLookup::getCallsign(CBString airlineCode) {
 
 	if (callsigns.find(airlineCode) == callsigns.end())
 		return "";

@@ -2,7 +2,7 @@
 #include "Config.hpp"
 #include <algorithm>
 
-CConfig::CConfig(string configPath)
+CConfig::CConfig(CBString configPath)
 {
 	config_path = configPath;
 	loadConfig();
@@ -14,7 +14,7 @@ void CConfig::loadConfig() {
 
 	stringstream ss;
 	ifstream ifs;
-	ifs.open(config_path.c_str(), std::ios::binary);
+	ifs.open(config_path, std::ios::binary);
 	ss << ifs.rdbuf();
 	ifs.close();
 
@@ -31,9 +31,9 @@ void CConfig::loadConfig() {
 
 	for (SizeType i = 0; i < document.Size(); i++) {
 		const Value& profile = document[i];
-		string profile_name = profile["name"].GetString();
+		CBString profile_name = profile["name"].GetString();
 
-		profiles.insert(pair<string, rapidjson::SizeType>(profile_name, i));
+		profiles.insert(pair<CBString, rapidjson::SizeType>(profile_name, i));
 	}
 }
 
@@ -41,21 +41,21 @@ const Value& CConfig::getActiveProfile() {
 	return document[active_profile];
 }
 
-bool CConfig::isSidColorAvail(string sid, string airport) {
+bool CConfig::isSidColorAvail(CBString sid, const char* airport) {
 	if (getActiveProfile().HasMember("maps"))
 	{
-		if (getActiveProfile()["maps"].HasMember(airport.c_str()))
+		if (getActiveProfile()["maps"].HasMember(airport))
 		{
-			if (getActiveProfile()["maps"][airport.c_str()].HasMember("sids") && getActiveProfile()["maps"][airport.c_str()]["sids"].IsArray())
+			if (getActiveProfile()["maps"][airport].HasMember("sids") && getActiveProfile()["maps"][airport]["sids"].IsArray())
 			{
-				const Value& SIDs = getActiveProfile()["maps"][airport.c_str()]["sids"];
+				const Value& SIDs = getActiveProfile()["maps"][airport]["sids"];
 				for (SizeType i = 0; i < SIDs.Size(); i++)
 				{
 					const Value& SIDNames = SIDs[i]["names"];
 					for (SizeType s = 0; s < SIDNames.Size(); s++) {
-						string currentsid = SIDNames[s].GetString();
-						std::transform(currentsid.begin(), currentsid.end(), currentsid.begin(), ::toupper);
-						if (startsWith(sid.c_str(), currentsid.c_str()))
+						CBString currentsid = SIDNames[s].GetString();
+						
+						if (sid.caselessEqual(currentsid))
 						{
 							return true;
 						}
@@ -67,22 +67,21 @@ bool CConfig::isSidColorAvail(string sid, string airport) {
 	return false;
 }
 
-Gdiplus::Color CConfig::getSidColor(string sid, string airport)
+Gdiplus::Color CConfig::getSidColor(CBString sid, const char* airport)
 {
 	if (getActiveProfile().HasMember("maps"))
 	{
-		if (getActiveProfile()["maps"].HasMember(airport.c_str()))
+		if (getActiveProfile()["maps"].HasMember(airport))
 		{
-			if (getActiveProfile()["maps"][airport.c_str()].HasMember("sids") && getActiveProfile()["maps"][airport.c_str()]["sids"].IsArray())
+			if (getActiveProfile()["maps"][airport].HasMember("sids") && getActiveProfile()["maps"][airport]["sids"].IsArray())
 			{
-				const Value& SIDs = getActiveProfile()["maps"][airport.c_str()]["sids"];
+				const Value& SIDs = getActiveProfile()["maps"][airport]["sids"];
 				for (SizeType i = 0; i < SIDs.Size(); i++)
 				{
 					const Value& SIDNames = SIDs[i]["names"];
 					for (SizeType s = 0; s < SIDNames.Size(); s++) {
-						string currentsid = SIDNames[s].GetString();
-						std::transform(currentsid.begin(), currentsid.end(), currentsid.begin(), ::toupper);
-						if (startsWith(sid.c_str(), currentsid.c_str()))
+						CBString currentsid = SIDNames[s].GetString();						
+						if (sid.caselessEqual(currentsid))
 						{
 							return getConfigColor(SIDs[i]["color"]);
 						}
@@ -115,20 +114,20 @@ COLORREF CConfig::getConfigColorRef(const Value& config_path) {
 	return Color;
 }
 
-const Value& CConfig::getAirportMapIfAny(string airport) {
+const Value& CConfig::getAirportMapIfAny(const char* airport) {
 	if (getActiveProfile().HasMember("maps")) {
 		const Value& map_data = getActiveProfile()["maps"];
-		if (map_data.HasMember(airport.c_str())) {
-			const Value& airport_map = map_data[airport.c_str()];
+		if (map_data.HasMember(airport)) {
+			const Value& airport_map = map_data[airport];
 			return airport_map;
 		}
 	}
 	return getActiveProfile();
 }
 
-bool CConfig::isAirportMapAvail(string airport) {
+bool CConfig::isAirportMapAvail(CBString airport) {
 	if (getActiveProfile().HasMember("maps")) {
-		if (getActiveProfile()["maps"].HasMember(airport.c_str())) {
+		if (getActiveProfile()["maps"].HasMember(airport)) {
 			return true;
 		}
 	}
@@ -136,15 +135,15 @@ bool CConfig::isAirportMapAvail(string airport) {
 }
 
 
-bool CConfig::isCustomRunwayAvail(string airport, string name1, string name2) {
+bool CConfig::isCustomRunwayAvail(const char* airport, CBString name1, CBString name2) {
 	if (getActiveProfile().HasMember("maps")) {
-		if (getActiveProfile()["maps"].HasMember(airport.c_str())) {
-			if (getActiveProfile()["maps"][airport.c_str()].HasMember("runways") 
-				&& getActiveProfile()["maps"][airport.c_str()]["runways"].IsArray()) {
-				const Value& Runways = getActiveProfile()["maps"][airport.c_str()]["runways"];
+		if (getActiveProfile()["maps"].HasMember(airport)) {
+			if (getActiveProfile()["maps"][airport].HasMember("runways") 
+				&& getActiveProfile()["maps"][airport]["runways"].IsArray()) {
+				const Value& Runways = getActiveProfile()["maps"][airport]["runways"];
 				for (SizeType i = 0; i < Runways.Size(); i++) {
-					if (startsWith(name1.c_str(), Runways[i]["runway_name"].GetString()) ||
-						startsWith(name2.c_str(), Runways[i]["runway_name"].GetString())) {
+					if (StartsWith(name1, Runways[i]["runway_name"].GetString()) ||
+						StartsWith(name2, Runways[i]["runway_name"].GetString())) {
 						return true;
 					}
 				}
@@ -154,9 +153,9 @@ bool CConfig::isCustomRunwayAvail(string airport, string name1, string name2) {
 	return false;
 }
 
-vector<string> CConfig::getAllProfiles() {
-	vector<string> toR;
-	for (std::map<string, rapidjson::SizeType>::iterator it = profiles.begin(); it != profiles.end(); ++it)
+vector<CBString> CConfig::getAllProfiles() {
+	vector<CBString> toR;
+	for (std::map<CBString, rapidjson::SizeType>::iterator it = profiles.begin(); it != profiles.end(); ++it)
 	{
 		toR.push_back(it->first);
 	}
