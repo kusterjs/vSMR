@@ -28,6 +28,10 @@ using namespace EuroScopePlugIn;
 	//static vector<string> ReleasedTracks;	
 //};
 
+#define PATATOIDES_NUM_POINTS 64
+#define ACT_TYPE_EMPTY_SPACES "      "
+#define GATE_EMPTY_SPACES "           "
+#define SCRATCHPAD_EMPTY_SPACES "                          "
 
 namespace SMRPluginSharedData {
 	static asio::io_service io_service;
@@ -69,6 +73,16 @@ public:
 		double x;
 		double y;
 	} POINT2;
+
+	/*
+	struct Patatoide_Points
+	{
+		POINT2 points[PATATOIDES_NUM_POINTS];
+		POINT2 History_one_points[PATATOIDES_NUM_POINTS];
+		POINT2 History_two_points[PATATOIDES_NUM_POINTS];
+		POINT2 History_three_points[PATATOIDES_NUM_POINTS];
+	};
+	*/
 
 	struct Patatoide_Points
 	{

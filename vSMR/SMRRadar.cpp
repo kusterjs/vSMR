@@ -838,7 +838,8 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		{ TAG_CITEM_FPBOX, TAG_ITEM_FUNCTION_OPEN_FP_DIALOG },
 		{ TAG_CITEM_RWY, TAG_ITEM_FUNCTION_ASSIGNED_RUNWAY },
 		{ TAG_CITEM_SID, TAG_ITEM_FUNCTION_ASSIGNED_SID },
-		{ TAG_CITEM_GROUNDSTATUS, TAG_ITEM_FUNCTION_SET_GROUND_STATUS }
+		{ TAG_CITEM_GROUNDSTATUS, TAG_ITEM_FUNCTION_SET_GROUND_STATUS },
+		{ TAG_CITEM_COMMTYPE, TAG_ITEM_FUNCTION_COMMUNICATION_POPUP }
 	};
 
 	if (Button == BUTTON_LEFT) {
@@ -1372,26 +1373,6 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	// ----- Callsign -------
 	string callsign = rt.GetCallsign();
 	if (fp.IsValid()) {
-		if (fp.GetControllerAssignedData().GetCommunicationType() == 't' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'T' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'r' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'R' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'v' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'V') {
-			if (fp.GetControllerAssignedData().GetCommunicationType() != 'v' &&
-				fp.GetControllerAssignedData().GetCommunicationType() != 'V') {
-				callsign.append("/");
-				callsign += fp.GetControllerAssignedData().GetCommunicationType();
-			}
-		}
-		else if (fp.GetFlightPlanData().GetCommunicationType() == 't' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'r' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'T' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'R') {
-			callsign.append("/");
-			callsign += fp.GetFlightPlanData().GetCommunicationType();
-		}
-
 		switch (fp.GetState()) {
 
 		case FLIGHT_PLAN_STATE_TRANSFER_TO_ME_INITIATED:
@@ -1404,6 +1385,29 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 
 		}
 	}
+	
+	// ----- Comms (voice/receive/text)
+	string commType = "  ";
+	if (fp.IsValid()) {
+		if (fp.GetControllerAssignedData().GetCommunicationType() == 't' ||
+			fp.GetControllerAssignedData().GetCommunicationType() == 'T' ||
+			fp.GetControllerAssignedData().GetCommunicationType() == 'r' ||
+			fp.GetControllerAssignedData().GetCommunicationType() == 'R' ||
+			fp.GetControllerAssignedData().GetCommunicationType() == 'v' ||
+			fp.GetControllerAssignedData().GetCommunicationType() == 'V') {
+			if (fp.GetControllerAssignedData().GetCommunicationType() != 'v' &&
+				fp.GetControllerAssignedData().GetCommunicationType() != 'V') {
+				commType = "/" + fp.GetControllerAssignedData().GetCommunicationType();
+			}
+		}
+		else if (fp.GetFlightPlanData().GetCommunicationType() == 't' ||
+			fp.GetFlightPlanData().GetCommunicationType() == 'r' ||
+			fp.GetFlightPlanData().GetCommunicationType() == 'T' ||
+			fp.GetFlightPlanData().GetCommunicationType() == 'R') {
+			commType = "/" + fp.GetFlightPlanData().GetCommunicationType();
+		}
+	}
+
 
 	// ----- Squawk error -------
 	string sqerror = "";
@@ -1418,10 +1422,10 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 
 	// ----- Aircraft type -------
 
-	string actype = "      ";
+	string actype = ACT_TYPE_EMPTY_SPACES;
 	if (fp.IsValid() && fp.GetFlightPlanData().IsReceived())
 		actype = fp.GetFlightPlanData().GetAircraftFPType();
-	if (actype.size() > 4 && actype != "      ")
+	if (actype.size() > 4 && actype != ACT_TYPE_EMPTY_SPACES)
 		actype = actype.substr(0, 4);
 
 	// ----- Aircraft type that changes to squawk error -------
@@ -1430,7 +1434,9 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 		sctype = sqerror;
 
 	// ----- Groundspeed -------
-	string speed = std::to_string(rt.GetPosition().GetReportedGS());
+	char buf[8];
+	sprintf_s(buf, "%03d", rt.GetPosition().GetReportedGS());
+	string speed = buf;
 
 	// ----- Departure runway -------
 	string deprwy = fp.GetFlightPlanData().GetDepartureRwy();
@@ -1468,7 +1474,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	}
 
 	if (gate.size() == 0 || gate == "0" || !isAcCorrelated)
-		gate = "           ";
+		gate = GATE_EMPTY_SPACES;
 
 	// ----- Gate that changes to speed -------
 	string sate = gate;
@@ -1548,7 +1554,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	// ----- Scratchpad ------
 	string scratchpad = fp.GetControllerAssignedData().GetScratchPadString();
 	if (scratchpad.length() == 0) {
-		scratchpad = "                          ";
+		scratchpad = SCRATCHPAD_EMPTY_SPACES;
 	}
 
 	// ----- Generating the replacing map -----
@@ -1606,6 +1612,7 @@ map<string, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CFli
 	TagMap["dest"]			= { dest, TAG_CITEM_FPBOX };
 	TagMap["scratchpad"]	= { scratchpad, TAG_CITEM_SCRATCHPAD };
 	TagMap["groundstatus"]	= { gstat, TAG_CITEM_GROUNDSTATUS };
+	TagMap["comms"]			= { commType, TAG_CITEM_COMMTYPE };
 
 	return TagMap;
 }
@@ -2141,7 +2148,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nosid_color"]);
 			}
 
-			if (TagMap["actype"].value == "     " && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
+			if (TagMap["actype"].value == ACT_TYPE_EMPTY_SPACES && LabelsSettings[Utils::getEnumString(ColorTagType).c_str()].HasMember("nofpl_color")) {
 				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType).c_str()]["nofpl_color"]);
 			}
 		}
@@ -2170,7 +2177,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			Pen pw(ColorManager->get_corrected_color("label", Color::White));
 			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
 		}
-		if (TagMap["groundstatus"].value == "DEPA") { // White border if tag is departure
+		if (TagMap["groundstatus"].value == "DEPA" && ColorTagType == TagTypes::Departure) { // White border if tag is departure
 			Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
 			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
 		}
@@ -2783,7 +2790,7 @@ void CSMRRadar::EuroScopePlugInExitCustom()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState())
 
-		if (cursor != nullptr && cursor != NULL) {
-			SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
-		}
+	if (cursor != nullptr && cursor != NULL) {
+		SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
+	}
 }
