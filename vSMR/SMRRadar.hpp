@@ -72,19 +72,13 @@ public:
 		int function;
 	};
 
-	typedef struct tagPOINT2
-	{
-		double x;
-		double y;
-	} POINT2;
-
 
 	struct Patatoide_Points
 	{
-		PointF points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
-		PointF history_one_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
-		PointF history_two_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
-		PointF history_three_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		CPosition points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		CPosition history_one_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		CPosition history_two_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		CPosition history_three_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
 	};
 
 	/*
@@ -97,7 +91,7 @@ public:
 	};
 	*/
 
-	map<CBString, Patatoide_Points*> Patatoides;
+	map<CBString, Patatoide_Points> Patatoides;
 
 	map<string, bool> ClosedRunway;
 

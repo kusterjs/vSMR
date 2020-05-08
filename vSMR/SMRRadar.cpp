@@ -1248,7 +1248,7 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 	// ------
 
 	// Random points between points of base shape
-	PointF currentPoints[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+	CPosition currentPoints[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
 	for (int i = 0; i < PATATOIDE_NUM_OUTER_POINTS; i++) {
 
 		CPosition newPoint, lastPoint, endPoint, startPoint;
@@ -1260,14 +1260,14 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 		double dist, rndHeading;
 		dist = startPoint.DistanceTo(endPoint);
 
-		currentPoints[i * PATATOIDE_NUM_INNER_POINTS] = { REAL(ConvertCoordFromPositionToPixel(startPoint).x), REAL(ConvertCoordFromPositionToPixel(startPoint).y) };
+		currentPoints[i * PATATOIDE_NUM_INNER_POINTS] = startPoint;
 		lastPoint = startPoint;
 
 		for (int k = 1; k < PATATOIDE_NUM_INNER_POINTS; k++) {
 			rndHeading = float(fmod(lastPoint.DirectionTo(endPoint) + (-25.0 + (rand() % 50 + 1)), 360));
 			newPoint = Haversine(lastPoint, rndHeading, dist * 200);
-			PointF graphicsPoint = { REAL(ConvertCoordFromPositionToPixel(newPoint).x), REAL(ConvertCoordFromPositionToPixel(newPoint).y) };
-			currentPoints[(i * PATATOIDE_NUM_INNER_POINTS) + k] = graphicsPoint;
+
+			currentPoints[(i * PATATOIDE_NUM_INNER_POINTS) + k] = newPoint;
 			lastPoint = newPoint;
 		}
 	}
@@ -1275,17 +1275,17 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 	auto arraySize = sizeof(currentPoints); // same size for all
 	if (Patatoides.count(callsign) == 0) { // If callsign is not initialised in map -> add it with all history points initialised to current points
 		Patatoide_Points points;
-		Patatoides[callsign] = &points;
-		memcpy_s(Patatoides[callsign]->points, arraySize, currentPoints, arraySize);
-		memcpy_s(Patatoides[callsign]->history_one_points, arraySize, currentPoints, arraySize);
-		memcpy_s(Patatoides[callsign]->history_two_points, arraySize, currentPoints, arraySize);
-		memcpy_s(Patatoides[callsign]->history_three_points, arraySize, currentPoints, arraySize);
+		Patatoides[callsign] = points;
+		memcpy_s(Patatoides[callsign].points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign].history_one_points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign].history_two_points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign].history_three_points, arraySize, currentPoints, arraySize);
 	}
 	else {
-		memcpy_s(Patatoides[callsign]->history_three_points, arraySize, Patatoides[callsign]->history_two_points, arraySize);
-		memcpy_s(Patatoides[callsign]->history_two_points, arraySize, Patatoides[callsign]->history_two_points, arraySize);
-		memcpy_s(Patatoides[callsign]->history_one_points, arraySize, Patatoides[callsign]->points, arraySize);
-		memcpy_s(Patatoides[callsign]->points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign].history_three_points, arraySize, Patatoides[callsign].history_two_points, arraySize);
+		memcpy_s(Patatoides[callsign].history_two_points, arraySize, Patatoides[callsign].history_one_points, arraySize);
+		memcpy_s(Patatoides[callsign].history_one_points, arraySize, Patatoides[callsign].points, arraySize);
+		memcpy_s(Patatoides[callsign].points, arraySize, currentPoints, arraySize);
 	}
 
 	//Patatoides[RadarTarget.GetCallsign()].points.clear();
@@ -1822,17 +1822,40 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		CRadarTargetPositionData RtPos = rt.GetPosition();
 		
 		if (Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
+
+			PointF graphicalPoints[4][PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS];
+
+			for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
+				// Convert from lon/lat to pixels. Has to be done here otherwise things like zooming and panning preserve the old shape.				
+				POINT hist0 = ConvertCoordFromPositionToPixel(Patatoides[callsign].points[i]);			
+				graphicalPoints[0][i] = { REAL(hist0.x), REAL(hist0.y) };
+			}
+
+			if (rt.GetGS() > 2) { // Only compute pixel positions if we're gonna draw them
+				for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {					
+					POINT hist3 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_three_points[i]);
+					POINT hist2 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_two_points[i]);
+					POINT hist1 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_one_points[i]);					
+
+					graphicalPoints[3][i] = { REAL(hist3.x), REAL(hist3.y) };
+					graphicalPoints[2][i] = { REAL(hist2.x), REAL(hist2.y) };
+					graphicalPoints[1][i] = { REAL(hist1.x), REAL(hist1.y) };
+				}
+			}
+
 			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
-			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_three_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+			if (rt.GetGS() > 2) { // Only draw the history shapes if the plane is moving, saves some instructions...
+				graphics.FillPolygon(&H_Brush, graphicalPoints[3], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 
-			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
-			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_two_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
+				graphics.FillPolygon(&H_Brush, graphicalPoints[2], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 
-			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
-			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_one_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
+				graphics.FillPolygon(&H_Brush, graphicalPoints[1], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+			}
 
 			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
-			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_one_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+			graphics.FillPolygon(&H_Brush, graphicalPoints[0], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 		}
 
 		
@@ -1840,7 +1863,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		if (reportedGs > 50)
 			TrailNumber = Trail_App;
 
-		CRadarTargetPositionData previousPos = rt.GetPreviousPosition(rt.GetPosition());
+		CRadarTargetPositionData previousPos = rt.GetPosition();
 		for (int j = 1; j <= TrailNumber; j++) {
 			POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
 
