@@ -1783,6 +1783,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	// ---------------
 	DrawTargets(&graphics, &dc, nullptr);
 
+	// ---------------
+	// RIMCAS 
+	// ---------------
+	RimcasInstance->OnRefreshEnd(this, CurrentConfig->getActiveProfile()["rimcas"]["rimcas_stage_two_speed_threshold"].GetInt());
+
 	// --------------
 	// Drawing Tags
 	// --------------
@@ -1792,8 +1797,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	RimcasInstance->AcOnRunway.clear();
 	ColorAC.clear();
 	tagAreas.clear();
-
-	RimcasInstance->OnRefreshEnd(this, CurrentConfig->getActiveProfile()["rimcas"]["rimcas_stage_two_speed_threshold"].GetInt());
 
 	graphics.SetSmoothingMode(SmoothingModeDefault);
 

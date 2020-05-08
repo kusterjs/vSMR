@@ -174,7 +174,11 @@ public:
 	bool IsCorrelated(CFlightPlan fp, CRadarTarget rt)
 	{		
 		if (isProMode) {
-			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
+			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {	
+
+				if (manuallyCorrelated.count(rt.GetSystemID()) > 0) {
+					return true;
+				}
 
 				ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
 
@@ -201,11 +205,7 @@ public:
 						break;
 					}
 				}*/
-				
-
-				if (manuallyCorrelated.count(rt.GetSystemID()) > 0) {
-					return true;
-				}
+									
 
 				/*if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end()) {
 					return false;
