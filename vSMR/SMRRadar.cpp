@@ -345,7 +345,7 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 			appWindows[i]->m_Scale = atoi(p_value);
 
 		if ((p_value = GetDataFromAsr(prefix + "Rotation")) != NULL)
-			appWindows[i]->m_Rotation = atoi(p_value);
+			appWindows[i]->m_Rotation = strtof(p_value, NULL);
 
 		if ((p_value = GetDataFromAsr(prefix + "ExtendedLinesLength")) != NULL)
 			appWindows[i]->m_ExtendedLinesLength = atoi(p_value);
@@ -492,7 +492,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 	}
 
 	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY ||
-		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
+		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || ObjectType == TAG_CITEM_COMMTYPE) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
 		if (!Released) {
@@ -920,7 +920,7 @@ void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId
 	mouseLocation = Pt;
 
 	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID
-		|| ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
+		|| ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || ObjectType == TAG_CITEM_COMMTYPE) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));  // make sure the correct aircraft is selected before calling 'StartTagFunction'
 
@@ -1045,7 +1045,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 
 	else if (FunctionId == RIMCAS_UPDATEROTATE1 || FunctionId == RIMCAS_UPDATEROTATE2) {
 		int id = FunctionId - RIMCAS_UPDATEROTATE;
-		appWindows[id]->m_Rotation = atoi(sItemString);
+		appWindows[id]->m_Rotation = strtof(sItemString, NULL);
 	}
 
 	else if (FunctionId == RIMCAS_UPDATE_BRIGHNESS) {
@@ -1511,10 +1511,10 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 	int fl = rt.GetPosition().GetFlightLevel();
 	CBString flightlevel;
 	if (fl <= TransitionAltitude) {
-		flightlevel.format("A%04d", rt.GetPosition().GetPressureAltitude());
+		flightlevel.format("A%02d", rt.GetPosition().GetPressureAltitude()/100);
 	}
 	else {
-		flightlevel.format("%05d", fl);
+		flightlevel.format("%03d", fl/100);
 	}
 
 	// ----- Tendency -------
@@ -1738,9 +1738,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
 	AirportPositions.clear();
-
-	CSectorElement apt;
-	for (apt = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_AIRPORT);
+	for (CSectorElement apt = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_AIRPORT);
 		apt.IsValid();
 		apt = GetPlugIn()->SectorFileElementSelectNext(apt, SECTOR_ELEMENT_AIRPORT)) {
 		CPosition Pos;
@@ -1780,149 +1778,15 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	RimcasInstance->OnRefreshBegin(isLVP);
 
-#pragma region symbols
-	// Drawing the symbols
-	Logger::info("Symbols loop");
-	EuroScopePlugIn::CRadarTarget rt;
-	for (rt = GetPlugIn()->RadarTargetSelectFirst();
-		rt.IsValid();
-		rt = GetPlugIn()->RadarTargetSelectNext(rt)) {
-		if (!rt.IsValid() || !rt.GetPosition().IsValid())
-			continue;
+    // ---------------
+	// Drawing targets
+	// ---------------
+	DrawTargets(&graphics, &dc, nullptr);
 
-		int reportedGs = rt.GetPosition().GetReportedGS();
-		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
-		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
-		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = isVisible(rt);
-
-		if (!isAcDisplayed)
-			continue;
-
-		CBString callsign = rt.GetCallsign();
-		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt));
-
-		CRadarTargetPositionData RtPos = rt.GetPosition();
-
-		if (Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-
-			PointF graphicalPoints[4][PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS];
-
-			for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
-				// Convert from lon/lat to pixels. Has to be done here otherwise things like zooming and panning preserve the old shape.				
-				POINT hist0 = ConvertCoordFromPositionToPixel(Patatoides[callsign].points[i]);
-				graphicalPoints[0][i] = { REAL(hist0.x), REAL(hist0.y) };
-			}
-
-			if (rt.GetGS() > 2) { // Only compute pixel positions if we're gonna draw them
-				for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
-					POINT hist3 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_three_points[i]);
-					POINT hist2 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_two_points[i]);
-					POINT hist1 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_one_points[i]);
-
-					graphicalPoints[3][i] = { REAL(hist3.x), REAL(hist3.y) };
-					graphicalPoints[2][i] = { REAL(hist2.x), REAL(hist2.y) };
-					graphicalPoints[1][i] = { REAL(hist1.x), REAL(hist1.y) };
-				}
-			}
-
-			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
-			if (rt.GetGS() > 2) { // Only draw the history shapes if the plane is moving, saves some instructions...
-				graphics.FillPolygon(&H_Brush, graphicalPoints[3], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
-
-				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
-				graphics.FillPolygon(&H_Brush, graphicalPoints[2], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
-
-				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
-				graphics.FillPolygon(&H_Brush, graphicalPoints[1], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
-			}
-
-			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
-			graphics.FillPolygon(&H_Brush, graphicalPoints[0], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
-		}
-
-
-		int TrailNumber = Trail_Gnd;
-		if (reportedGs > 50)
-			TrailNumber = Trail_App;
-
-		CRadarTargetPositionData previousPos = rt.GetPosition();
-		for (int j = 1; j <= TrailNumber; j++) {
-			POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
-
-			graphics.FillRectangle(&SolidBrush(ColorManager->get_corrected_color("symbol", Gdiplus::Color::White)),
-				pCoord.x - 1, pCoord.y - 1, 2, 2);
-
-			previousPos = rt.GetPreviousPosition(previousPos);
-		}
-
-		bool AcisCorrelated = IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt);
-		if (!AcisCorrelated && reportedGs < 1 && !ReleaseInProgress && !AcquireInProgress)
-			continue;
-
-		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
-		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
-		CPen* pqOrigPen = dc.SelectObject(&qTrailPen);
-
-		if (RtPos.GetTransponderC()) {
-			dc.MoveTo({ acPosPix.x, acPosPix.y - 6 });
-			dc.LineTo({ acPosPix.x - 6, acPosPix.y });
-			dc.LineTo({ acPosPix.x, acPosPix.y + 6 });
-			dc.LineTo({ acPosPix.x + 6, acPosPix.y });
-			dc.LineTo({ acPosPix.x, acPosPix.y - 6 });
-		}
-		else {
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x - 4, acPosPix.y - 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x + 4, acPosPix.y - 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x - 4, acPosPix.y + 4);
-			dc.MoveTo(acPosPix.x, acPosPix.y);
-			dc.LineTo(acPosPix.x + 4, acPosPix.y + 4);
-		}
-
-		// Predicted Track Line
-		// It starts 20 seconds away from the ac
-		if (reportedGs > 50) {
-			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * 10;
-			CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
-
-			d = double(rt.GetPosition().GetReportedGS()*0.514444) * (PredictedLenght * 60) - 10;
-			CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
-
-			dc.MoveTo(ConvertCoordFromPositionToPixel(AwayBase));
-			dc.LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
-		}
-
-		if (mouseWithin({ acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 })) {
-			dc.MoveTo(acPosPix.x, acPosPix.y - 8);
-			dc.LineTo(acPosPix.x - 6, acPosPix.y - 12);
-			dc.MoveTo(acPosPix.x, acPosPix.y - 8);
-			dc.LineTo(acPosPix.x + 6, acPosPix.y - 12);
-
-			dc.MoveTo(acPosPix.x, acPosPix.y + 8);
-			dc.LineTo(acPosPix.x - 6, acPosPix.y + 12);
-			dc.MoveTo(acPosPix.x, acPosPix.y + 8);
-			dc.LineTo(acPosPix.x + 6, acPosPix.y + 12);
-
-			dc.MoveTo(acPosPix.x - 8, acPosPix.y);
-			dc.LineTo(acPosPix.x - 12, acPosPix.y - 6);
-			dc.MoveTo(acPosPix.x - 8, acPosPix.y);
-			dc.LineTo(acPosPix.x - 12, acPosPix.y + 6);
-
-			dc.MoveTo(acPosPix.x + 8, acPosPix.y);
-			dc.LineTo(acPosPix.x + 12, acPosPix.y - 6);
-			dc.MoveTo(acPosPix.x + 8, acPosPix.y);
-			dc.LineTo(acPosPix.x + 12, acPosPix.y + 6);
-		}
-
-		AddScreenObject(DRAWING_AC_SYMBOL, callsign, { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()) : rt.GetSystemID());
-
-		dc.SelectObject(pqOrigPen);
-	}
-
-#pragma endregion Drawing of the symbols
+	// --------------
+	// Drawing Tags
+	// --------------
+	DrawTags(&graphics, nullptr);
 
 	TimePopupData.clear();
 	RimcasInstance->AcOnRunway.clear();
@@ -1933,15 +1797,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	graphics.SetSmoothingMode(SmoothingModeDefault);
 
-	// --------------
-	// Drawing Tags
-	// --------------
-	
-	DrawTags(&graphics, false);
-
-
 	// Releasing the hDC after the drawing
 	graphics.ReleaseHDC(hDC);
+
+	// --------------
+	// Drawing IAW
+	// --------------
 	int oldDC = SaveDC(dc);
 
 	Logger::info("RIMCAS Loop");
@@ -2210,43 +2071,10 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		RequestRefresh();
 	}
 
-	// Distance tools here
-	for (auto&& kv : DistanceTools) {
-		CRadarTarget one = GetPlugIn()->RadarTargetSelect(kv.first);
-		CRadarTarget two = GetPlugIn()->RadarTargetSelect(kv.second);
-
-		if (!isVisible(one) || !isVisible(two))
-			continue;
-
-		CPen Pen(PS_SOLID, 1, RGB(255, 255, 255));
-		CPen *oldPen = dc.SelectObject(&Pen);
-
-		POINT onePoint = ConvertCoordFromPositionToPixel(one.GetPosition().GetPosition());
-		POINT twoPoint = ConvertCoordFromPositionToPixel(two.GetPosition().GetPosition());
-
-		dc.MoveTo(onePoint);
-		dc.LineTo(twoPoint);
-
-		POINT TextPos = { twoPoint.x + 20, twoPoint.y };
-
-		double Distance = one.GetPosition().GetPosition().DistanceTo(two.GetPosition().GetPosition());
-		double Bearing = one.GetPosition().GetPosition().DirectionTo(two.GetPosition().GetPosition());
-
-		char QDRText[32];
-		sprintf_s(QDRText, "%.1f\xB0 / %.1fNM", Bearing, Distance);
-		COLORREF old_color = dc.SetTextColor(RGB(0, 0, 0));
-
-		CRect ClickableRect = { TextPos.x - 2, TextPos.y, TextPos.x + dc.GetTextExtent(QDRText).cx + 2, TextPos.y + dc.GetTextExtent(QDRText).cy };
-		graphics.FillRectangle(&SolidBrush(Color(127, 122, 122)), CopyRect(ClickableRect));
-		dc.Draw3dRect(ClickableRect, RGB(75, 75, 75), RGB(45, 45, 45));
-		dc.TextOutA(TextPos.x, TextPos.y, QDRText);
-
-		AddScreenObject(RIMCAS_DISTANCE_TOOL, kv.first + "," + kv.second, ClickableRect, false, "");
-
-		dc.SetTextColor(old_color);
-
-		dc.SelectObject(oldPen);
-	}
+	//---------------------------------
+	// Drawing distance tools
+	//---------------------------------
+	DrawDistanceTools(&graphics, &dc, nullptr);
 
 	//---------------------------------
 	// Drawing the toolbar
@@ -2416,53 +2244,231 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 }
 
 
-void CSMRRadar::DrawTags(Gdiplus::Graphics* graphics, bool isInsetWindow)
-{	
+void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow) 
+{
+	// Drawing the symbols
+	Logger::info("Symbols loop");
+	for (CRadarTarget rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid();	rt = GetPlugIn()->RadarTargetSelectNext(rt)) {
+		if (!rt.IsValid() || !rt.GetPosition().IsValid())
+			continue;
+
+		if (insetWindow == nullptr && !ShouldDraw(rt))
+			continue;
+		if (insetWindow != nullptr) {
+			if (!insetWindow->ShouldDrawInWindow(this, &rt))
+				continue;
+		}
+
+		CBString callsign = rt.GetCallsign();
+		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt));
+
+		CRadarTargetPositionData RtPos = rt.GetPosition();
+		int reportedGS = RtPos.GetReportedGS();
+
+		if ((insetWindow == nullptr) && 
+			Afterglow && 
+			CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool() &&
+			(rt.GetPosition().GetPressureAltitude() < CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt())) {
+
+			PointF graphicalPoints[4][PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS];
+
+			for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
+				// Convert from lon/lat to pixels. Has to be done here otherwise things like zooming and panning preserve the old shape.				
+				POINT hist0 = ConvertCoordFromPositionToPixel(Patatoides[callsign].points[i]);
+				graphicalPoints[0][i] = { REAL(hist0.x), REAL(hist0.y) };
+			}
+
+			if (rt.GetGS() > 2) { // Only compute pixel positions if we're gonna draw them
+				for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
+					POINT hist3 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_three_points[i]);
+					POINT hist2 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_two_points[i]);
+					POINT hist1 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_one_points[i]);
+
+					graphicalPoints[3][i] = { REAL(hist3.x), REAL(hist3.y) };
+					graphicalPoints[2][i] = { REAL(hist2.x), REAL(hist2.y) };
+					graphicalPoints[1][i] = { REAL(hist1.x), REAL(hist1.y) };
+				}
+			}
+
+			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
+			if (rt.GetGS() > 2) { // Only draw the history shapes if the plane is moving, saves some instructions...
+				graphics->FillPolygon(&H_Brush, graphicalPoints[3], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+
+				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
+				graphics->FillPolygon(&H_Brush, graphicalPoints[2], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+
+				H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
+				graphics->FillPolygon(&H_Brush, graphicalPoints[1], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+			}
+
+			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
+			graphics->FillPolygon(&H_Brush, graphicalPoints[0], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
+		}
+
+
+		int TrailNumber = Trail_Gnd;
+		if (reportedGS > 50)
+			TrailNumber = Trail_App;
+
+		CRadarTargetPositionData previousPos = RtPos;
+		for (int j = 1; j <= TrailNumber; j++) {
+			if (insetWindow == nullptr) {
+				POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
+				graphics->FillRectangle(&SolidBrush(ColorManager->get_corrected_color("symbol", Gdiplus::Color::White)),
+					pCoord.x - 1, pCoord.y - 1, 2, 2);
+			}
+			else {
+				CRect windowAreaCRect(insetWindow->m_Area);
+				vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
+
+				POINT pCoord = insetWindow->projectPoint(previousPos.GetPosition(), AirportPositions[ActiveAirport]);
+				if (Is_Inside(pCoord, appAreaVect)) {
+					dc->SetPixel(pCoord, ColorManager->get_corrected_color("symbol", Color::White).ToCOLORREF());
+				}
+			}
+			previousPos = rt.GetPreviousPosition(previousPos);
+		}
+
+		bool AcisCorrelated = IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt);
+		if (!AcisCorrelated && reportedGS < 1 && !ReleaseInProgress && !AcquireInProgress)
+			continue;
+
+		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
+		if (insetWindow != nullptr) {
+			acPosPix = insetWindow->projectPoint(RtPos.GetPosition(), AirportPositions[ActiveAirport]);			
+		}
+		
+		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
+		CPen* pqOrigPen = dc->SelectObject(&qTrailPen);
+
+		if (RtPos.GetTransponderC()) {
+			dc->MoveTo({ acPosPix.x, acPosPix.y - 6 });
+			dc->LineTo({ acPosPix.x - 6, acPosPix.y });
+			dc->LineTo({ acPosPix.x, acPosPix.y + 6 });
+			dc->LineTo({ acPosPix.x + 6, acPosPix.y });
+			dc->LineTo({ acPosPix.x, acPosPix.y - 6 });
+		}
+		else {
+			dc->MoveTo(acPosPix.x, acPosPix.y);
+			dc->LineTo(acPosPix.x - 4, acPosPix.y - 4);
+			dc->MoveTo(acPosPix.x, acPosPix.y);
+			dc->LineTo(acPosPix.x + 4, acPosPix.y - 4);
+			dc->MoveTo(acPosPix.x, acPosPix.y);
+			dc->LineTo(acPosPix.x - 4, acPosPix.y + 4);
+			dc->MoveTo(acPosPix.x, acPosPix.y);
+			dc->LineTo(acPosPix.x + 4, acPosPix.y + 4);
+		}
+
+		// Predicted Track Line
+		// It starts 20 seconds away from the ac
+		if (reportedGS > 50) {
+			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * 10;
+			CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
+
+			d = double(rt.GetPosition().GetReportedGS()*0.514444) * (PredictedLenght * 60) - 10;
+			CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
+
+			dc->MoveTo(ConvertCoordFromPositionToPixel(AwayBase));
+			dc->LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
+		}
+
+		if (mouseWithin({ acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 })) {
+			dc->MoveTo(acPosPix.x, acPosPix.y - 8);
+			dc->LineTo(acPosPix.x - 6, acPosPix.y - 12);
+			dc->MoveTo(acPosPix.x, acPosPix.y - 8);
+			dc->LineTo(acPosPix.x + 6, acPosPix.y - 12);
+
+			dc->MoveTo(acPosPix.x, acPosPix.y + 8);
+			dc->LineTo(acPosPix.x - 6, acPosPix.y + 12);
+			dc->MoveTo(acPosPix.x, acPosPix.y + 8);
+			dc->LineTo(acPosPix.x + 6, acPosPix.y + 12);
+
+			dc->MoveTo(acPosPix.x - 8, acPosPix.y);
+			dc->LineTo(acPosPix.x - 12, acPosPix.y - 6);
+			dc->MoveTo(acPosPix.x - 8, acPosPix.y);
+			dc->LineTo(acPosPix.x - 12, acPosPix.y + 6);
+
+			dc->MoveTo(acPosPix.x + 8, acPosPix.y);
+			dc->LineTo(acPosPix.x + 12, acPosPix.y - 6);
+			dc->MoveTo(acPosPix.x + 8, acPosPix.y);
+			dc->LineTo(acPosPix.x + 12, acPosPix.y + 6);
+		}
+
+		if (insetWindow == nullptr) {
+			AddScreenObject(DRAWING_AC_SYMBOL, callsign, { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()) : rt.GetSystemID());
+		}
+		else {
+			AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (insetWindow->m_Id - APPWINDOW_BASE), rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, GetBottomLine(rt.GetCallsign()));
+		}
+		dc->SelectObject(pqOrigPen);
+	}
+}
+
+void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
+{
 	Logger::info("Tags loop");
 	for (auto rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt)) {
 
 		if (!rt.IsValid())
 			continue;
 
-		POINT acPosPix = ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition());
 		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
 		int reportedGs = rt.GetPosition().GetReportedGS();
 
 		// Filtering the targets
-		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
-		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
-		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = isVisible(rt);
+		if (insetWindow == nullptr && !ShouldDraw(rt))
+			continue;
 
 		bool AcisCorrelated = IsCorrelated(fp, rt);
-
 		if (!AcisCorrelated && reportedGs < 3)
-			isAcDisplayed = false;
+			continue;
+
+		if (insetWindow != nullptr) {
+			if (!insetWindow->ShouldDrawInWindow(this, &rt))
+				continue;
+		}
 
 		//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
 		//isAcDisplayed = false;
 
-		if (!isAcDisplayed)
-			continue;
-
 		// Getting the tag center/offset
+		POINT acPosPix;
 		POINT TagCenter;
-		map<CBString, POINT>::iterator it = TagsOffsets.find(rt.GetCallsign());
-		if (it != TagsOffsets.end()) {
-			TagCenter = { acPosPix.x + it->second.x, acPosPix.y + it->second.y };
+		int length = LeaderLineDefaultlength;
+
+		if (insetWindow == nullptr) {
+			acPosPix = ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition());
+
+			map<CBString, POINT>::iterator it = TagsOffsets.find(rt.GetCallsign());
+			if (it != TagsOffsets.end()) {
+				TagCenter.x = acPosPix.x + it->second.x;
+				TagCenter.y = acPosPix.y + it->second.y ;
+			}
+			else {
+				// Use angle:
+				if (TagAngles.find(rt.GetCallsign()) == TagAngles.end()) {
+					TagAngles[rt.GetCallsign()] = 270.0f;
+				}
+
+				if (TagLeaderLineLength.find(rt.GetCallsign()) != TagLeaderLineLength.end()) {
+					length = TagLeaderLineLength[rt.GetCallsign()];
+				}
+
+				TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(TagAngles[rt.GetCallsign()]))));
+				TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
+			}			
 		}
 		else {
-			// Use angle:
-			if (TagAngles.find(rt.GetCallsign()) == TagAngles.end())
-				TagAngles[rt.GetCallsign()] = 270.0f;
+			acPosPix = insetWindow->projectPoint(rt.GetPosition().GetPosition(), AirportPositions[ActiveAirport]);
+			length = 50; // fixed length in SRW
 
-			int length = LeaderLineDefaultlength;
-			if (TagLeaderLineLength.find(rt.GetCallsign()) != TagLeaderLineLength.end())
-				length = TagLeaderLineLength[rt.GetCallsign()];
-
-			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(TagAngles[rt.GetCallsign()]))));
-			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
+			if (insetWindow->m_TagAngles.find(rt.GetCallsign()) == insetWindow->m_TagAngles.end()) {
+				insetWindow->m_TagAngles[rt.GetCallsign()] = 45.0; // @TODO: Not the best, ah well
+			}
+			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(insetWindow->m_TagAngles[rt.GetCallsign()]))));
+			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(insetWindow->m_TagAngles[rt.GetCallsign()]))));
 		}
+
 
 		TagTypes TagType = TagTypes::Departure;
 		TagTypes ColorTagType = TagTypes::Departure;
@@ -2607,138 +2613,233 @@ void CSMRRadar::DrawTags(Gdiplus::Graphics* graphics, bool isInsetWindow)
 				CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["background_color_on_runway"]));
 
 		TagBackgroundColor = ColorManager->get_corrected_color("label", TagBackgroundColor);
-
-		// Drawing the tag background
+		
+		// ---------------------
+		// Drawing the tag
+		// ---------------------
 		CRect TagBackgroundRect((int)(TagCenter.x - (TagWidth / 2.0)), (int)(TagCenter.y - (TagHeight / 2.0)), (int)(TagCenter.x + (TagWidth / 2.0)), (int)(TagCenter.y + (TagHeight / 2.0)));
-		SolidBrush TagBackgroundBrush(TagBackgroundColor);
-		graphics->FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
-		if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign())) {
-			Pen pw(ColorManager->get_corrected_color("label", Color::White));
-			graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+		
+		// We only draw if the tag is:
+		//		1) from the normal SMR window
+		//      2) inside the SRW window
+
+		bool shouldDraw = false;
+		if (insetWindow == nullptr) {
+			shouldDraw = true;
 		}
-		if (TagMap["groundstatus"].value == "DEPA" && ColorTagType == TagTypes::Departure) { // White border if tag is departure
-			Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
-			graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
-		}
+		else {
+			CRect windowAreaCRect(insetWindow->m_Area);
+			vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
 
-		// Drawing the tag text
-
-		SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["text_color"])));
-		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
-		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
-
-		/*
-		SolidBrush GroundPushColor(TagBackgroundColor);
-		SolidBrush GroundTaxiColor(TagBackgroundColor);
-		SolidBrush GroundDepaColor(TagBackgroundColor);
-		if (LabelsSettings.HasMember("groundstatus_colors")) {
-		GroundPushColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
-		GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
-		GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
-		}
-		*/
-
-		// Drawing the leader line
-		RECT TagBackRectData = TagBackgroundRect;
-		POINT toDraw1, toDraw2;
-		if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
-			graphics->DrawLine(&Pen(ColorManager->get_corrected_color("symbol", Color::White)), PointF(Gdiplus::REAL(acPosPix.x), Gdiplus::REAL(acPosPix.y)), PointF(Gdiplus::REAL(toDraw1.x), Gdiplus::REAL(toDraw1.y)));
-
-		// If we use a RIMCAS label only, we display it, and adapt the rectangle
-		CRect oldCrectSave = TagBackgroundRect;
-
-		if (rimcasLabelOnly) {
-			Color RimcasLabelColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(), Color::AliceBlue, Color::AliceBlue,
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
-
-			if (RimcasLabelColor.ToCOLORREF() != Color(Color::AliceBlue).ToCOLORREF()) {
-				RimcasLabelColor = ColorManager->get_corrected_color("label", RimcasLabelColor);
-				int rimcas_height = 0;
-
-				wstring rimcasw = L"ALERT";
-				RectF RectRimcas_height;
-
-				graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
-				rimcas_height = int(RectRimcas_height.GetBottom());
-
-				// Drawing the rectangle
-
-				CRect RimcasLabelRect(TagBackgroundRect.left, TagBackgroundRect.top - rimcas_height, TagBackgroundRect.right, TagBackgroundRect.top);
-				graphics->FillRectangle(&SolidBrush(RimcasLabelColor), CopyRect(RimcasLabelRect));
-				TagBackgroundRect.top -= rimcas_height;
-
-				// Drawing the text
-				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
-				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-				graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+			if (Is_Inside(TagBackgroundRect.TopLeft(), appAreaVect) &&
+				Is_Inside(acPosPix, appAreaVect) &&
+				Is_Inside(TagBackgroundRect.BottomRight(), appAreaVect)) {
+				shouldDraw = true;
 			}
 		}
 
-		// Adding the tag screen object
-		tagAreas[rt.GetCallsign()] = TagBackgroundRect;
-		AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()));
+		if (shouldDraw) {
+			SolidBrush TagBackgroundBrush(TagBackgroundColor);
+			graphics->FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
+			if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign())) {
+				Pen pw(ColorManager->get_corrected_color("label", Color::White));
+				graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+			}
+			if (TagMap["groundstatus"].value == "DEPA" && ColorTagType == TagTypes::Departure) { // White border if tag is departure
+				Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
+				graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+			}
 
-		TagBackgroundRect = oldCrectSave;
+			// Getting font colors
+			SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["text_color"])));
+			SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
+			SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
 
-		// Clickable zones
-		Gdiplus::REAL heightOffset = 0;
-		for (auto&& line : ReplacedLabelLines) {
-			Gdiplus::REAL widthOffset = 0;
-			for (auto&& tagItem : line) {
-				SolidBrush* color = &FontColor;
-				if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
-					color = &SquawkErrorColor;
+			/*
+			SolidBrush GroundPushColor(TagBackgroundColor);
+			SolidBrush GroundTaxiColor(TagBackgroundColor);
+			SolidBrush GroundDepaColor(TagBackgroundColor);
+			if (LabelsSettings.HasMember("groundstatus_colors")) {
+			GroundPushColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
+			GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
+			GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
+			}
+			*/
 
-				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
-					color = &RimcasTextColor;
+			// Drawing the leader line
+			RECT TagBackRectData = TagBackgroundRect;
+			POINT toDraw1, toDraw2;
+			if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
+				graphics->DrawLine(&Pen(ColorManager->get_corrected_color("symbol", Color::White)), PointF(Gdiplus::REAL(acPosPix.x), Gdiplus::REAL(acPosPix.y)), PointF(Gdiplus::REAL(toDraw1.x), Gdiplus::REAL(toDraw1.y)));
 
-				// Ground tag colors
-				/*if (tagItem.value == "PUSH")
-				color = &GroundPushColor;
-				if (tagItem.value == "TAXI")
-				color = &GroundTaxiColor;
-				if (tagItem.value == "DEPA")
-				color = &GroundDepaColor;
-				*/
-				RectF mRect(0, 0, 0, 0);
-				wstring welement = ToWString(tagItem.value);
-				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
+			// If we use a RIMCAS label only, we display it, and adapt the rectangle
+			CRect oldCrectSave = TagBackgroundRect;
 
-				if (heightOffset == 0) { // first line
-					graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&stformat, color);
+			if (rimcasLabelOnly) {
+				Color RimcasLabelColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(), Color::AliceBlue, Color::AliceBlue,
+					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
+					CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
 
-					graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-						PointF(0, 0), &stformat, &mRect);
+				if (RimcasLabelColor.ToCOLORREF() != Color(Color::AliceBlue).ToCOLORREF()) {
+					RimcasLabelColor = ColorManager->get_corrected_color("label", RimcasLabelColor);
+					int rimcas_height = 0;
+
+					wstring rimcasw = L"ALERT";
+					RectF RectRimcas_height;
+
+					graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
+					rimcas_height = int(RectRimcas_height.GetBottom());
+
+					// Drawing the rectangle
+					CRect RimcasLabelRect(TagBackgroundRect.left, TagBackgroundRect.top - rimcas_height, TagBackgroundRect.right, TagBackgroundRect.top);
+					graphics->FillRectangle(&SolidBrush(RimcasLabelColor), CopyRect(RimcasLabelRect));
+					TagBackgroundRect.top -= rimcas_height;
+
+					// Drawing the text
+					Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
+					stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
+					graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+				}
+			}
+
+			// Adding the tag screen object if we're on the normal SMR window
+			if (insetWindow == nullptr) {
+				tagAreas[rt.GetCallsign()] = TagBackgroundRect;
+				AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()));
+			}
+			TagBackgroundRect = oldCrectSave;
+
+			// Draw tag text and clickable zones
+			Gdiplus::REAL heightOffset = 0;
+			for (auto&& line : ReplacedLabelLines) {
+				Gdiplus::REAL widthOffset = 0;
+				for (auto&& tagItem : line) {
+					SolidBrush* color = &FontColor;
+					if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
+						color = &SquawkErrorColor;
+
+					if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
+						color = &RimcasTextColor;
+
+					// Ground tag colors
+					/*if (tagItem.value == "PUSH")
+					color = &GroundPushColor;
+					if (tagItem.value == "TAXI")
+					color = &GroundTaxiColor;
+					if (tagItem.value == "DEPA")
+					color = &GroundDepaColor;
+					*/
+					RectF mRect(0, 0, 0, 0);
+					wstring welement = ToWString(tagItem.value);
+					Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
+
+					if (heightOffset == 0) { // first line
+						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+							&stformat, color);
+
+						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+							PointF(0, 0), &stformat, &mRect);
+					}
+					else {
+						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
+							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+							&stformat, color);
+
+						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
+							PointF(0, 0), &stformat, &mRect);
+					}
+
+					CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
+						(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
+
+					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
+
+					widthOffset += mRect.GetRight();
+					widthOffset += blankWidth;
+				}
+
+				if (heightOffset == 0) {
+					heightOffset += firstLineHeight;
 				}
 				else {
-					graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
-						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&stformat, color);
-
-					graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
-						PointF(0, 0), &stformat, &mRect);
+					heightOffset += oneLineHeight;
 				}
-
-				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
-					(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
-
-				AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
-
-				widthOffset += mRect.GetRight();
-				widthOffset += blankWidth;
-			}
-
-			if (heightOffset == 0) {
-				heightOffset += firstLineHeight;
-			}
-			else {
-				heightOffset += oneLineHeight;
 			}
 		}
 	}
+}
+
+void CSMRRadar::DrawDistanceTools(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow) {
+
+	for (auto&& kv : DistanceTools) {
+		CRadarTarget one = GetPlugIn()->RadarTargetSelect(kv.first);
+		CRadarTarget two = GetPlugIn()->RadarTargetSelect(kv.second);
+
+		if (!one.IsValid() || !one.GetPosition().IsValid())
+			continue;
+
+		if (!ShouldDraw(one) || !ShouldDraw(two))
+			continue;
+
+		if (insetWindow != nullptr) {
+			if (!insetWindow->ShouldDrawInWindow(this, &one) || !insetWindow->ShouldDrawInWindow(this, &two))
+				continue;
+		}
+
+		CPen Pen(PS_SOLID, 1, RGB(255, 255, 255));
+		CPen *oldPen = dc->SelectObject(&Pen);
+
+		POINT onePoint;
+		POINT twoPoint;
+
+		if (insetWindow == nullptr) {
+			onePoint = ConvertCoordFromPositionToPixel(one.GetPosition().GetPosition());
+			twoPoint = ConvertCoordFromPositionToPixel(two.GetPosition().GetPosition());
+
+			dc->MoveTo(onePoint);
+			dc->LineTo(twoPoint);
+		}
+		else {
+			onePoint = insetWindow->projectPoint(one.GetPosition().GetPosition(), AirportPositions[ActiveAirport]);
+			twoPoint = insetWindow->projectPoint(two.GetPosition().GetPosition(), AirportPositions[ActiveAirport]);
+
+			POINT toDraw1, toDraw2;
+			if (LiangBarsky(insetWindow->m_Area, onePoint, twoPoint, toDraw1, toDraw2)) {
+				dc->MoveTo(toDraw1);
+				dc->LineTo(toDraw2);
+			}
+		}
+
+		POINT TextPos = { twoPoint.x + 20, twoPoint.y };
+
+		double Distance = one.GetPosition().GetPosition().DistanceTo(two.GetPosition().GetPosition());
+		double Bearing = one.GetPosition().GetPosition().DirectionTo(two.GetPosition().GetPosition());
+
+		char QDRText[32];
+		sprintf_s(QDRText, "%.1f\xB0 / %.1fNM", Bearing, Distance);
+		COLORREF old_color = dc->SetTextColor(RGB(0, 0, 0));
+
+		CRect ClickableRect = { TextPos.x - 2, TextPos.y, TextPos.x + dc->GetTextExtent(QDRText).cx + 2, TextPos.y + dc->GetTextExtent(QDRText).cy };	
+		
+		if (insetWindow != nullptr) {
+			CRect windowAreaCRect(insetWindow->m_Area);
+			vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
+
+			if (Is_Inside(ClickableRect.TopLeft(), appAreaVect) && Is_Inside(ClickableRect.BottomRight(), appAreaVect)) {
+				graphics->FillRectangle(&SolidBrush(Color(127, 122, 122)), CopyRect(ClickableRect));
+				dc->Draw3dRect(ClickableRect, RGB(75, 75, 75), RGB(45, 45, 45));
+				dc->TextOutA(TextPos.x, TextPos.y, QDRText);
+
+				AddScreenObject(RIMCAS_DISTANCE_TOOL, kv.first + "," + kv.second, ClickableRect, false, "");
+			}
+		}
+
+		dc->SetTextColor(old_color);
+
+		dc->SelectObject(oldPen);
+	}
+
 }
 
 // ReSharper restore CppMsExtAddressOfClassRValue

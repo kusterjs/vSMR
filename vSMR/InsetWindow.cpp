@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "InsetWindow.h"
+#include "InsetWindow.hpp"
 
 
 CInsetWindow::CInsetWindow(int Id)
@@ -11,10 +11,6 @@ CInsetWindow::~CInsetWindow()
 {
 }
 
-void CInsetWindow::setAirport(CBString icao)
-{
-	this->icao = icao;
-}
 
 void CInsetWindow::OnClickScreenObject(const char * sItemString, POINT Pt, int Button)
 {
@@ -100,7 +96,28 @@ bool CInsetWindow::OnMoveScreenObject(const char * sObjectId, POINT Pt, RECT Are
 	return true;
 }
 
-POINT CInsetWindow::projectPoint(CPosition pos)
+bool CInsetWindow::ShouldDrawInWindow(CSMRRadar* radar_screen, CRadarTarget* rt) {
+
+	auto refPos = radar_screen->AirportPositions[radar_screen->ActiveAirport];
+
+	if (rt->GetGS() < 60 ||
+		rt->GetPosition().GetPressureAltitude() > m_Filter ||
+		rt->GetPosition().GetPressureAltitude() < radar_screen->CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt() ||
+		refPos.DistanceTo(rt->GetPosition().GetPosition()) > m_RadarRange) {
+		return false;
+	}
+
+	auto acPosPix = projectPoint(rt->GetPosition().GetPosition(), refPos);
+	CRect windowAreaCRect(m_Area);
+	vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
+	if (!Is_Inside(acPosPix, appAreaVect)) {
+		return false;
+	}
+
+	return true;
+}
+
+POINT CInsetWindow::projectPoint(CPosition pos, CPosition ref)
 {
 	CRect areaRect(m_Area);
 	areaRect.NormalizeRect();
@@ -111,8 +128,8 @@ POINT CInsetWindow::projectPoint(CPosition pos)
 
 	POINT out = {0, 0};
 
-	double dist = AptPositions[icao].DistanceTo(pos);
-	double dir = TrueBearing(AptPositions[icao], pos);
+	double dist = ref.DistanceTo(pos);
+	double dir = TrueBearing(ref, pos);
 
 
 	out.x = refPt.x + int(m_Scale * dist * sin(dir) + 0.5);
@@ -171,8 +188,9 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 		}
 	};
 
-	icao = radar_screen->ActiveAirport;
-	AptPositions = radar_screen->AirportPositions;
+	auto icao = radar_screen->ActiveAirport;
+	auto AptPositions = radar_screen->AirportPositions;
+	CPosition refPos = AptPositions[icao];
 
 	COLORREF qBackgroundColor = radar_screen->CurrentConfig->getConfigColorRef(radar_screen->CurrentConfig->getActiveProfile()["approach_insets"]["background_color"]);
 	CRect windowAreaCRect(m_Area);
@@ -206,8 +224,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 			rwy.GetPosition(&EndTwo, 1);
 
 			POINT Pt1, Pt2;
-			Pt1 = projectPoint(EndOne);
-			Pt2 = projectPoint(EndTwo);
+			Pt1 = projectPoint(EndOne, refPos);
+			Pt2 = projectPoint(EndTwo, refPos);
 
 			POINT toDraw1, toDraw2;
 			if (LiangBarsky(m_Area, Pt1, Pt2, toDraw1, toDraw2)) {
@@ -236,8 +254,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 				// Drawing the extended centreline
 				CPosition endExtended = BetterHarversine(Threshold, reverseHeading, length);
 
-				Pt1 = projectPoint(Threshold);
-				Pt2 = projectPoint(endExtended);
+				Pt1 = projectPoint(Threshold, refPos);
+				Pt2 = projectPoint(endExtended, refPos);
 
 				if (LiangBarsky(m_Area, Pt1, Pt2, toDraw1, toDraw2)) {
 					dc.SelectObject(&ExtendedCentreLinePen);
@@ -254,8 +272,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 					CPosition tickBottom = BetterHarversine(tickPosition, fmod(reverseHeading - 90, 360), 500);
 					CPosition tickTop = BetterHarversine(tickPosition, fmod(reverseHeading + 90, 360), 500);
 
-					Pt1 = projectPoint(tickBottom);
-					Pt2 = projectPoint(tickTop);
+					Pt1 = projectPoint(tickBottom, refPos);
+					Pt2 = projectPoint(tickTop, refPos);
 
 					if (LiangBarsky(m_Area, Pt1, Pt2, toDraw1, toDraw2)) {
 						dc.SelectObject(&ExtendedCentreLinePen);
@@ -271,10 +289,14 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	}
 
 	// Aircrafts
-
 	vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
 	CPen WhitePen(PS_SOLID, 1, radar_screen->ColorManager->get_corrected_color("symbol", Color::White).ToCOLORREF());
 
+	radar_screen->DrawTargets(gdi, &dc, this);
+	radar_screen->DrawTags(gdi, this);
+	
+
+	/*
 	CRadarTarget rt;
 	for (rt = radar_screen->GetPlugIn()->RadarTargetSelectFirst();
 		rt.IsValid();
@@ -294,90 +316,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 		auto fp = radar_screen->GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
 		auto reportedGs = RtPos.GetReportedGS();
 
-		// Filtering the targets
-
-		POINT RtPoint, hPoint;
-
-		RtPoint = projectPoint(RtPos2);
-
-		CRadarTargetPositionData hPos = rt.GetPreviousPosition(rt.GetPosition());
-		for (int i = 1; i < radar_screen->Trail_App; i++) {
-			if (!hPos.IsValid())
-				continue;
-
-			hPoint = projectPoint(hPos.GetPosition());
-
-			if (Is_Inside(hPoint, appAreaVect)) {
-				dc.SetPixel(hPoint, radar_screen->ColorManager->get_corrected_color("symbol", Color::White).ToCOLORREF());
-			}
-
-			hPos = rt.GetPreviousPosition(hPos);
-		}
-
-		if (Is_Inside(RtPoint, appAreaVect)) {
-			dc.SelectObject(&WhitePen);
-
-			if (RtPos.GetTransponderC()) {
-				dc.MoveTo({ RtPoint.x, RtPoint.y - 4 });
-				dc.LineTo({ RtPoint.x - 4, RtPoint.y });
-				dc.LineTo({ RtPoint.x, RtPoint.y + 4 });
-				dc.LineTo({ RtPoint.x + 4, RtPoint.y });
-				dc.LineTo({ RtPoint.x, RtPoint.y - 4 });
-			}
-			else {
-				dc.MoveTo(RtPoint.x, RtPoint.y);
-				dc.LineTo(RtPoint.x - 4, RtPoint.y - 4);
-				dc.MoveTo(RtPoint.x, RtPoint.y);
-				dc.LineTo(RtPoint.x + 4, RtPoint.y - 4);
-				dc.MoveTo(RtPoint.x, RtPoint.y);
-				dc.LineTo(RtPoint.x - 4, RtPoint.y + 4);
-				dc.MoveTo(RtPoint.x, RtPoint.y);
-				dc.LineTo(RtPoint.x + 4, RtPoint.y + 4);
-			}
-
-			CRect TargetArea(RtPoint.x - 4, RtPoint.y - 4, RtPoint.x + 4, RtPoint.y + 4);
-			TargetArea.NormalizeRect();
-			radar_screen->AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (m_Id - APPWINDOW_BASE), rt.GetCallsign(), TargetArea, false, radar_screen->GetBottomLine(rt.GetCallsign()));
-		}
-
-		// Predicted Track Line
-		// It starts 10 seconds away from the ac
-		double d = double(rt.GetPosition().GetReportedGS()*0.514444)*10;
-		CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
-
-		d = double(rt.GetPosition().GetReportedGS()*0.514444) * (radar_screen->PredictedLenght * 60)-10;
-		CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
-
-		POINT liangOne, liangTwo;
-
-		if (LiangBarsky(m_Area, projectPoint(AwayBase), projectPoint(PredictedEnd), liangOne, liangTwo))
-		{
-			dc.SelectObject(&WhitePen);
-			dc.MoveTo(liangOne);
-			dc.LineTo(liangTwo);
-		}
-
-		if (mouseWithin(mouseLocation, { RtPoint.x - 4, RtPoint.y - 4, RtPoint.x + 4, RtPoint.y + 4 })) {
-			dc.MoveTo(RtPoint.x, RtPoint.y - 6);
-			dc.LineTo(RtPoint.x - 4, RtPoint.y - 10);
-			dc.MoveTo(RtPoint.x, RtPoint.y - 6);
-			dc.LineTo(RtPoint.x + 4, RtPoint.y - 10);
-
-			dc.MoveTo(RtPoint.x, RtPoint.y + 6);
-			dc.LineTo(RtPoint.x - 4, RtPoint.y + 10);
-			dc.MoveTo(RtPoint.x, RtPoint.y + 6);
-			dc.LineTo(RtPoint.x + 4, RtPoint.y + 10);
-
-			dc.MoveTo(RtPoint.x - 6, RtPoint.y);
-			dc.LineTo(RtPoint.x - 10, RtPoint.y - 4);
-			dc.MoveTo(RtPoint.x - 6, RtPoint.y);
-			dc.LineTo(RtPoint.x - 10, RtPoint.y + 4);
-
-			dc.MoveTo(RtPoint.x + 6, RtPoint.y);
-			dc.LineTo(RtPoint.x + 10, RtPoint.y - 4);
-			dc.MoveTo(RtPoint.x + 6, RtPoint.y);
-			dc.LineTo(RtPoint.x + 10, RtPoint.y + 4);
-		}
+		auto RtPoint = projectPoint(RtPos2, refPos);
 
 		int lenght = 50;
 
@@ -633,6 +572,91 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 				}
 			}
 
+			// Filtering the targets
+			POINT RtPoint, hPoint;
+
+			RtPoint = projectPoint(RtPos2, refPos);
+
+			CRadarTargetPositionData hPos = rt.GetPreviousPosition(rt.GetPosition());
+			for (int i = 1; i < radar_screen->Trail_App; i++) {
+				if (!hPos.IsValid())
+					continue;
+
+				hPoint = projectPoint(hPos.GetPosition(), refPos);
+
+				if (Is_Inside(hPoint, appAreaVect)) {
+					dc.SetPixel(hPoint, radar_screen->ColorManager->get_corrected_color("symbol", Color::White).ToCOLORREF());
+				}
+
+				hPos = rt.GetPreviousPosition(hPos);
+			}
+
+			if (Is_Inside(RtPoint, appAreaVect)) {
+				dc.SelectObject(&WhitePen);
+
+				if (RtPos.GetTransponderC()) {
+					dc.MoveTo({ RtPoint.x, RtPoint.y - 4 });
+					dc.LineTo({ RtPoint.x - 4, RtPoint.y });
+					dc.LineTo({ RtPoint.x, RtPoint.y + 4 });
+					dc.LineTo({ RtPoint.x + 4, RtPoint.y });
+					dc.LineTo({ RtPoint.x, RtPoint.y - 4 });
+				}
+				else {
+					dc.MoveTo(RtPoint.x, RtPoint.y);
+					dc.LineTo(RtPoint.x - 4, RtPoint.y - 4);
+					dc.MoveTo(RtPoint.x, RtPoint.y);
+					dc.LineTo(RtPoint.x + 4, RtPoint.y - 4);
+					dc.MoveTo(RtPoint.x, RtPoint.y);
+					dc.LineTo(RtPoint.x - 4, RtPoint.y + 4);
+					dc.MoveTo(RtPoint.x, RtPoint.y);
+					dc.LineTo(RtPoint.x + 4, RtPoint.y + 4);
+				}
+
+				CRect TargetArea(RtPoint.x - 4, RtPoint.y - 4, RtPoint.x + 4, RtPoint.y + 4);
+				TargetArea.NormalizeRect();
+				radar_screen->AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (m_Id - APPWINDOW_BASE), rt.GetCallsign(), TargetArea, false, radar_screen->GetBottomLine(rt.GetCallsign()));
+			}
+
+			// Predicted Track Line
+			// It starts 10 seconds away from the ac
+			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * 10;
+			CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
+
+			d = double(rt.GetPosition().GetReportedGS()*0.514444) * (radar_screen->PredictedLenght * 60) - 10;
+			CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
+
+			POINT liangOne, liangTwo;
+
+			if (LiangBarsky(m_Area, projectPoint(AwayBase, refPos), projectPoint(PredictedEnd, refPos), liangOne, liangTwo)) {
+				dc.SelectObject(&WhitePen);
+				dc.MoveTo(liangOne);
+				dc.LineTo(liangTwo);
+			}
+
+			if (mouseWithin(mouseLocation, { RtPoint.x - 4, RtPoint.y - 4, RtPoint.x + 4, RtPoint.y + 4 })) {
+				dc.MoveTo(RtPoint.x, RtPoint.y - 6);
+				dc.LineTo(RtPoint.x - 4, RtPoint.y - 10);
+				dc.MoveTo(RtPoint.x, RtPoint.y - 6);
+				dc.LineTo(RtPoint.x + 4, RtPoint.y - 10);
+
+				dc.MoveTo(RtPoint.x, RtPoint.y + 6);
+				dc.LineTo(RtPoint.x - 4, RtPoint.y + 10);
+				dc.MoveTo(RtPoint.x, RtPoint.y + 6);
+				dc.LineTo(RtPoint.x + 4, RtPoint.y + 10);
+
+				dc.MoveTo(RtPoint.x - 6, RtPoint.y);
+				dc.LineTo(RtPoint.x - 10, RtPoint.y - 4);
+				dc.MoveTo(RtPoint.x - 6, RtPoint.y);
+				dc.LineTo(RtPoint.x - 10, RtPoint.y + 4);
+
+				dc.MoveTo(RtPoint.x + 6, RtPoint.y);
+				dc.LineTo(RtPoint.x + 10, RtPoint.y - 4);
+				dc.MoveTo(RtPoint.x + 6, RtPoint.y);
+				dc.LineTo(RtPoint.x + 10, RtPoint.y + 4);
+			}
+
+
+
 			// Adding the tag screen object
 
 			//radar_screen->AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()).c_str());
@@ -642,8 +666,14 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 			// Now adding the clickable zones
 		}
 	}
+	*/
 
-	// Distance tools here
+
+	//---------------------------------
+	// Drawing distance tools
+	//---------------------------------
+    radar_screen->DrawDistanceTools(gdi, &dc, this);
+	/*
 	for (auto&& kv : DistanceTools)
 	{
 		CRadarTarget one = radar_screen->GetPlugIn()->RadarTargetSelect(kv.first);
@@ -668,8 +698,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 		CPen Pen(PS_SOLID, 1, RGB(255, 255, 255));
 		CPen *oldPen = dc.SelectObject(&Pen);
 
-		POINT onePoint = projectPoint(one.GetPosition().GetPosition());
-		POINT twoPoint = projectPoint(two.GetPosition().GetPosition());
+		POINT onePoint = projectPoint(one.GetPosition().GetPosition(), refPos);
+		POINT twoPoint = projectPoint(two.GetPosition().GetPosition(), refPos);
 
 		POINT toDraw1, toDraw2;
 		if (LiangBarsky(m_Area, onePoint, twoPoint, toDraw1, toDraw2)) {
@@ -700,6 +730,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 		dc.SelectObject(oldPen);
 	}
+	*/
 
 	// Resize square
 	qBackgroundColor = RGB(60, 60, 60);

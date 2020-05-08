@@ -18,10 +18,11 @@
 #include "CallsignLookup.hpp"
 #include "Config.hpp"
 #include "Rimcas.hpp"
-#include "InsetWindow.h"
+#include "InsetWindow.hpp"
 #include "ColorManager.h"
 #include "Logger.h"
 
+class CInsetWindow;
 using namespace std;
 using namespace Gdiplus;
 using namespace EuroScopePlugIn;
@@ -34,7 +35,7 @@ using namespace EuroScopePlugIn;
 #define PATATOIDE_NUM_OUTER_POINTS 12
 #define PATATOIDE_NUM_INNER_POINTS 7
 #define ACT_TYPE_EMPTY_SPACES "      "
-#define GATE_EMPTY_SPACES "           "
+#define GATE_EMPTY_SPACES "        "
 #define SCRATCHPAD_EMPTY_SPACES "                          "
 
 namespace SMRPluginSharedData {
@@ -154,6 +155,7 @@ public:
 	bool DistanceToolActive = false;
 	pair<CBString, CBString> ActiveDistance;
 
+	
 	//----
 	// Tag types
 	//---
@@ -173,22 +175,24 @@ public:
 	{		
 		if (isProMode) {
 			if (fp.IsValid() && fp.GetFlightPlanData().IsReceived()) {				
-				if (strcmp(fp.GetControllerAssignedData().GetSquawk(), rt.GetPosition().GetSquawk()) == 0) {
+
+				ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
+
+				CBString squawk = rt.GetPosition().GetSquawk();
+				CBString assignedSquawk = fp.GetControllerAssignedData().GetSquawk();
+
+				if (squawk.midstr(2,2) == "00" && squawk != "1000") { // are the last 2 chars of the squawk 00 and NOT 1000?
+					return false;
+				}
+
+				if (squawk == assignedSquawk) {
 					return true;
 				}
 
 				/*if (CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["accept_pilot_squawk"].GetBool()) {
 					return true;
 				}*/
-
-				ASSERT(strlen(rt.GetPosition().GetSquawk()) == 4);
-				if (strcmp(rt.GetPosition().GetSquawk(), "1000") == 0) { // squawk 1000
-					return true;
-				}
-
-				if (strcmp(rt.GetPosition().GetSquawk() - 2, "00") == 0) { // are the last 2 chars of the squawk 00
-					return false;
-				}
+			
 
 				/*const Value& sqs = CurrentConfig->getActiveProfile()["filters"]["pro_mode"]["do_not_autocorrelate_squawks"];
 				for (SizeType i = 0; i < sqs.Size(); i++) {
@@ -311,7 +315,9 @@ public:
 	void LoadCustomFont();
 	void LoadProfile(CBString profileName);
 
-	void DrawTags(Gdiplus::Graphics* graphics, bool isInsetWindow);
+	void DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow);
+	void DrawTags(Graphics* graphics, CInsetWindow* insetWindow);
+	void DrawDistanceTools(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow);
 
 	virtual void OnAsrContentLoaded(bool Loaded);
 	virtual void OnAsrContentToBeSaved();
@@ -328,28 +334,27 @@ public:
 	virtual void OnRadarTargetPositionUpdate(CRadarTarget RadarTarget);
 	virtual void OnFlightPlanDisconnect(CFlightPlan FlightPlan);
 
-	bool isVisible(CRadarTarget rt)
+	bool ShouldDraw(CRadarTarget rt)
 	{
 		CRadarTargetPositionData RtPos = rt.GetPosition();
 		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
 		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
 		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = true;
 
 		if (AirportPositions[ActiveAirport].DistanceTo(RtPos.GetPosition()) > radarRange)
-			isAcDisplayed = false;
+			return false;
 
 		if (altitudeFilter != 0) {
 			if (RtPos.GetPressureAltitude() > altitudeFilter)
-				isAcDisplayed = false;
+				return false;
 		}
 
 		if (speedFilter != 0) {
 			if (RtPos.GetReportedGS() > speedFilter)
-				isAcDisplayed = false;
+				return false;
 		}
 
-		return isAcDisplayed;
+		return true;
 	}
 
 	//---Haversine---------------------------------------------

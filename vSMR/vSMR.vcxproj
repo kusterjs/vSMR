@@ -165,7 +165,7 @@
     <ClInclude Include="CPDLCSettingsDialog.hpp" />
     <ClInclude Include="DataLinkDialog.hpp" />
     <ClInclude Include="HttpHelper.hpp" />
-    <ClInclude Include="InsetWindow.h" />
+    <ClInclude Include="InsetWindow.hpp" />
     <ClInclude Include="Logger.h" />
     <ClInclude Include="rapidjson\document.h" />
     <ClInclude Include="rapidjson\filestream.h" />
