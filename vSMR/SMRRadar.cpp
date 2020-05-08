@@ -5,7 +5,7 @@
 ULONG_PTR m_gdiplusToken;
 CPoint mouseLocation(0, 0);
 CBString TagBeingDragged;
-int LeaderLineDefaultlenght = 50;
+int LeaderLineDefaultlength = 50;
 
 bool onFunctionCallDoubleCallHack = false;
 
@@ -73,8 +73,8 @@ CSMRRadar::CSMRRadar()
 	// Loading up the callsigns for the bottom line
 	// Search for ICAO airlines file if it already exists (usually given by the VACC)
 	CBString AirlinesPath = Logger::DLL_PATH;
-	for (int i = 0; i < 3; ++i) {				
-		AirlinesPath = AirlinesPath.midstr(0, AirlinesPath.reversefind("\\", AirlinesPath.length()-1));
+	for (int i = 0; i < 3; ++i) {
+		AirlinesPath = AirlinesPath.midstr(0, AirlinesPath.reversefind("\\", AirlinesPath.length() - 1));
 	}
 	AirlinesPath += "\\ICAO\\ICAO_Airlines.txt";
 
@@ -130,7 +130,7 @@ CSMRRadar::~CSMRRadar()
 		//this->EuroScopePlugInExitCustom();
 	}
 	catch (exception &e) {
-		auto msg = bformat("Error occured: %s\n", e.what());		
+		auto msg = bformat("Error occured: %s\n", e.what());
 		AfxMessageBox(bstr2cstr(msg, ' '));
 	}
 	// Shutting down GDI+
@@ -171,14 +171,14 @@ void CSMRRadar::LoadCustomFont()
 	// Loading the custom font if there is one in use
 	CBString font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
 	wstring buffer = ToWString(font_name);
-	
+
 	Gdiplus::FontStyle fontStyle = Gdiplus::FontStyleRegular;
 	if (strcmp(CurrentConfig->getActiveProfile()["font"]["weight"].GetString(), "Bold") == 0)
 		fontStyle = Gdiplus::FontStyleBold;
 	if (strcmp(CurrentConfig->getActiveProfile()["font"]["weight"].GetString(), "Italic") == 0)
 		fontStyle = Gdiplus::FontStyleItalic;
 
-	customFont = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(currentFontSize), fontStyle, Gdiplus::UnitPixel);	
+	customFont = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(currentFontSize), fontStyle, Gdiplus::UnitPixel);
 }
 
 void CSMRRadar::LoadProfile(CBString profileName)
@@ -187,7 +187,7 @@ void CSMRRadar::LoadProfile(CBString profileName)
 	// Loading the new profile
 	CurrentConfig->setActiveProfile(profileName);
 
-	LeaderLineDefaultlenght = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
+	LeaderLineDefaultlength = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
 
 	// Reloading the fonts
 	LoadCustomFont();
@@ -196,7 +196,7 @@ void CSMRRadar::LoadProfile(CBString profileName)
 	RimcasInstance->Runways.clear();
 	CSectorElement rwy;
 	for (rwy = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY); rwy.IsValid(); rwy = GetPlugIn()->SectorFileElementSelectNext(rwy, SECTOR_ELEMENT_RUNWAY)) {
-		
+
 		if (StartsWith(ActiveAirport, rwy.GetAirportName())) {
 
 			CRimcas::Runway smrRunway;
@@ -223,7 +223,7 @@ void CSMRRadar::LoadProfile(CBString profileName)
 
 			if (CurrentConfig->isCustomRunwayAvail(ActiveAirport, rwy.GetRunwayName(0), rwy.GetRunwayName(1))) {
 				const Value& Runways = CustomMap["runways"];
-				
+
 				if (Runways.IsArray()) {
 					for (SizeType i = 0; i < Runways.Size(); i++) {
 						if (StartsWith(rwy.GetRunwayName(0), Runways[i]["runway_name"].GetString()) ||
@@ -363,54 +363,54 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 void CSMRRadar::OnAsrContentToBeSaved()
 {
 	Logger::info(__FUNCSIG__);
-    CBString temp;
+	CBString temp;
 
 	SaveDataToAsr("Airport", "Active airport for RIMCAS", ActiveAirport);
 	SaveDataToAsr("ActiveProfile", "vSMR active profile", CurrentConfig->getActiveProfileName());
-	
+
 	temp.format("%d", currentFontSize);
 	SaveDataToAsr("FontSize", "vSMR font size", temp);
-	
+
 	temp.format("%d", Afterglow);
 	SaveDataToAsr("Afterglow", "vSMR Afterglow enabled", temp);
-	
+
 	temp.format("%d", Trail_App);
 	SaveDataToAsr("AppTrailsDots", "vSMR APPR Trail Dots", temp);
-	
+
 	temp.format("%d", Trail_Gnd);
 	SaveDataToAsr("GndTrailsDots", "vSMR GRND Trail Dots", temp);
-	
+
 	temp.format("%d", PredictedLenght);
 	SaveDataToAsr("PredictedLine", "vSMR Predicted Track Lines", temp);
-	
+
 	temp.format("%d", isProMode);
 	SaveDataToAsr("ProMode", "vSMR Professional mode for correlation", temp);
-	
+
 	temp.format("%d", useCustomCursor);
 	SaveDataToAsr("CustomCursor", "vSMR Custom Mouse Cursor", temp);
-	
+
 	temp.format("%d", useAutoDeconfliction);
 	SaveDataToAsr("AutoDeconfliction", "vSMR Tag auto deconfliction", temp);
 
 	for (int i = 1; i < 3; i++) {
-		CBString prefix(*bformat("SRW%d", i));		
+		CBString prefix(*bformat("SRW%d", i));
 
-		temp.format("%f", appWindows[i]->m_Area.left);
+		temp.format("%ld", appWindows[i]->m_Area.left);
 		SaveDataToAsr(prefix + "TopLeftX", prefix + " position", temp);
 
-		temp.format("%f", appWindows[i]->m_Area.top);
+		temp.format("%ld", appWindows[i]->m_Area.top);
 		SaveDataToAsr(prefix + "TopLeftY", prefix + " position", temp);
 
-		temp.format("%f", appWindows[i]->m_Area.right);
+		temp.format("%ld", appWindows[i]->m_Area.right);
 		SaveDataToAsr(prefix + "BottomRightX", prefix + " position", temp);
 
-		temp.format("%f", appWindows[i]->m_Area.bottom);
+		temp.format("%ld", appWindows[i]->m_Area.bottom);
 		SaveDataToAsr(prefix + "BottomRightY", prefix + " position", temp);
 
-		temp.format("%f", appWindows[i]->m_Offset.x);
+		temp.format("%ld", appWindows[i]->m_Offset.x);
 		SaveDataToAsr(prefix + "OffsetX", prefix + " offset", temp);
 
-		temp.format("%f", appWindows[i]->m_Offset.y);
+		temp.format("%ld", appWindows[i]->m_Offset.y);
 		SaveDataToAsr(prefix + "OffsetY", prefix + " offset", temp);
 
 		temp.format("%d", appWindows[i]->m_Filter);
@@ -419,7 +419,7 @@ void CSMRRadar::OnAsrContentToBeSaved()
 		temp.format("%d", appWindows[i]->m_Scale);
 		SaveDataToAsr(prefix + "Scale", prefix + " range", temp);
 
-		temp.format("%d", appWindows[i]->m_Rotation);
+		temp.format("%f", appWindows[i]->m_Rotation);
 		SaveDataToAsr(prefix + "Rotation", prefix + " rotation", temp);
 
 		temp.format("%d", appWindows[i]->m_ExtendedLinesLength);
@@ -435,7 +435,8 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	}
 }
 
-void CSMRRadar::ReloadActiveRunways() {
+void CSMRRadar::ReloadActiveRunways()
+{
 	CSectorElement rwy;
 	for (rwy = GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY); rwy.IsValid(); rwy = GetPlugIn()->SectorFileElementSelectNext(rwy, SECTOR_ELEMENT_RUNWAY)) {
 		if (StartsWith(ActiveAirport, rwy.GetAirportName())) {
@@ -457,7 +458,7 @@ void CSMRRadar::ReloadActiveRunways() {
 				}
 			}
 		}
-	}		
+	}
 }
 
 void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, bool Released)
@@ -490,7 +491,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 		}
 	}
 
-	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || 
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY ||
 		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
@@ -523,13 +524,13 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 					angles.push_back(k);
 
 				TagAngles[sObjectId] = closest(angles, angle);
-				TagLeaderLineLength[sObjectId] = max(LeaderLineDefaultlenght, min(int(DistancePts(AcPosPix, TagCenterPix)), LeaderLineDefaultlenght * 2));
+				TagLeaderLineLength[sObjectId] = max(LeaderLineDefaultlength, min(int(DistancePts(AcPosPix, TagCenterPix)), LeaderLineDefaultlength * 2));
 
 			}
 			else {
 				TagsOffsets[sObjectId] = CustomTag;
 			}
-			
+
 			GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));
 
 			if (Released) {
@@ -877,7 +878,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		StartTagFunction(rt.GetCallsign(), NULL, ObjectType, rt.GetCallsign(), NULL, TagMenu, Pt, Area);
 	}
 
-	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_GATE) {		
+	if (Button == BUTTON_RIGHT && ObjectType == TAG_CITEM_GATE) {
 		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(fp);
 		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, GetStandNumber(fp));
@@ -891,7 +892,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		onFunctionCallDoubleCallHack = true;
 	}
 
-	
+
 	if (ObjectType == RIMCAS_DISTANCE_TOOL) {
 
 		CBStringList s;
@@ -913,13 +914,14 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 	RequestRefresh();
 };
 
-void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button) {
+void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId, POINT Pt, RECT Area, int Button)
+{
 	Logger::info(__FUNCSIG__);
 	mouseLocation = Pt;
 
-	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID 
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID
 		|| ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
-		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);		
+		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));  // make sure the correct aircraft is selected before calling 'StartTagFunction'
 
 		CBString callsign = rt.GetCallsign();
@@ -935,7 +937,7 @@ void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId
 void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT Pt, RECT Area)
 {
 	Logger::info(__FUNCSIG__);
-	Logger::info(bstr2cstr(bformat("%d - %s", FunctionId, sItemString),' '));
+	Logger::info(bstr2cstr(bformat("%d - %s", FunctionId, sItemString), ' '));
 	mouseLocation = Pt;
 
 	/* 	-----------------------------------------------------------------------------------------------
@@ -943,12 +945,12 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	Who the hell knows why... but it is quite problematic
 	Therefore, a hack variable is used to force the "after edit" function (here TAG_FUNC_STAND_EDITOR)
 	to be called only once.
-	
+
 	Also, both the CPlugIn AND the CRadarScreen versions of the function always get called together,
 	so technically (apparently) you could have the implementation of both into just one...
 	not sure what the point would be or if it's any good either, just weird all around
 	----------------------------------------------------------------------------------------------- */
-	
+
 
 	if (FunctionId == TAG_FUNC_STAND_EDIT) {
 		CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
@@ -1391,7 +1393,7 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 	// dest: destination aerodrome
 	// ----
 
-	bool isAcCorrelated = radar->IsCorrelated(fp, rt);	
+	bool isAcCorrelated = radar->IsCorrelated(fp, rt);
 	int TransitionAltitude = radar->GetPlugIn()->GetTransitionAltitude();
 	//bool useSpeedForGates = radar->CurrentConfig->getActiveProfile()["labels"]["use_aspeed_for_gate"].GetBool();
 
@@ -1413,7 +1415,7 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 			break;
 		}
 	}
-	
+
 	// ----- Comms (voice/receive/text)
 	CBString commType = "";
 	if (fp.IsValid()) {
@@ -1421,15 +1423,15 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 		char ctrlerComType = fp.GetControllerAssignedData().GetCommunicationType();
 		char fpComType = fp.GetFlightPlanData().GetCommunicationType();
 
-		if (ctrlerComType == 't' ||	ctrlerComType == 'T' ||
-			ctrlerComType == 'r' ||	ctrlerComType == 'R' ||
-			ctrlerComType == 'v' ||	ctrlerComType == 'V') {
+		if (ctrlerComType == 't' || ctrlerComType == 'T' ||
+			ctrlerComType == 'r' || ctrlerComType == 'R' ||
+			ctrlerComType == 'v' || ctrlerComType == 'V') {
 			if (ctrlerComType != 'v' &&	ctrlerComType != 'V') {
 				commType.format("/%c", ctrlerComType);
 			}
 		}
 		else if (fpComType == 't' || fpComType == 'T' ||
-				 fpComType == 'r' || fpComType == 'R') {
+			fpComType == 'r' || fpComType == 'R') {
 			commType.format("/%c", fpComType);
 		}
 	}
@@ -1469,7 +1471,7 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 
 	// ----- Departure runway that changes for speed on the runway -------
 	CBString seprwy = deprwy;
-	if (isOnRunway){
+	if (isOnRunway) {
 		seprwy.format("%03d", rt.GetPosition().GetReportedGS());
 	}
 
@@ -1610,31 +1612,31 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 			callsign = TagReplacingMap["systemid"];
 		}
 		*/
-	//}
+		//}
 
-	TagMap["callsign"]		= { callsign, TAG_CITEM_CALLSIGN };
-	TagMap["actype"]		= { actype, TAG_CITEM_FPBOX };
-	TagMap["sctype"]		= { sctype, TAG_CITEM_FPBOX };
-	TagMap["sqerror"]		= { sqerror, TAG_CITEM_FPBOX };
-	TagMap["deprwy"]		= { deprwy, TAG_CITEM_RWY };
-	TagMap["seprwy"]		= { seprwy, TAG_CITEM_RWY };
-	TagMap["arvrwy"]		= { arvrwy, TAG_CITEM_RWY };
-	TagMap["srvrwy"]		= { srvrwy, TAG_CITEM_RWY };
-	TagMap["gate"]			= { gate, TAG_CITEM_GATE };
-	TagMap["sate"]			= { sate, TAG_CITEM_GATE };
-	TagMap["flightlevel"]	= { flightlevel, TAG_CITEM_NO };
-	TagMap["gs"]			= { speed, TAG_CITEM_NO };
-	TagMap["gshide"]		= { gshide, TAG_CITEM_NO };
-	TagMap["tendency"]		= { tendency, TAG_CITEM_NO };
-	TagMap["wake"]			= { wake, TAG_CITEM_FPBOX };
-	TagMap["ssr"]			= { tssr, TAG_CITEM_NO };
-	TagMap["asid"]			= { dep, TAG_CITEM_SID };
-	TagMap["ssid"]			= { ssid,TAG_CITEM_SID };
-	TagMap["origin"]		= { origin, TAG_CITEM_FPBOX };
-	TagMap["dest"]			= { dest, TAG_CITEM_FPBOX };
-	TagMap["scratchpad"]	= { scratchpad, TAG_CITEM_SCRATCHPAD };
-	TagMap["groundstatus"]	= { gstat, TAG_CITEM_GROUNDSTATUS };
-	TagMap["comms"]			= { commType, TAG_CITEM_COMMTYPE };
+	TagMap["callsign"] = { callsign, TAG_CITEM_CALLSIGN };
+	TagMap["actype"] = { actype, TAG_CITEM_FPBOX };
+	TagMap["sctype"] = { sctype, TAG_CITEM_FPBOX };
+	TagMap["sqerror"] = { sqerror, TAG_CITEM_FPBOX };
+	TagMap["deprwy"] = { deprwy, TAG_CITEM_RWY };
+	TagMap["seprwy"] = { seprwy, TAG_CITEM_RWY };
+	TagMap["arvrwy"] = { arvrwy, TAG_CITEM_RWY };
+	TagMap["srvrwy"] = { srvrwy, TAG_CITEM_RWY };
+	TagMap["gate"] = { gate, TAG_CITEM_GATE };
+	TagMap["sate"] = { sate, TAG_CITEM_GATE };
+	TagMap["flightlevel"] = { flightlevel, TAG_CITEM_NO };
+	TagMap["gs"] = { speed, TAG_CITEM_NO };
+	TagMap["gshide"] = { gshide, TAG_CITEM_NO };
+	TagMap["tendency"] = { tendency, TAG_CITEM_NO };
+	TagMap["wake"] = { wake, TAG_CITEM_FPBOX };
+	TagMap["ssr"] = { tssr, TAG_CITEM_NO };
+	TagMap["asid"] = { dep, TAG_CITEM_SID };
+	TagMap["ssid"] = { ssid,TAG_CITEM_SID };
+	TagMap["origin"] = { origin, TAG_CITEM_FPBOX };
+	TagMap["dest"] = { dest, TAG_CITEM_FPBOX };
+	TagMap["scratchpad"] = { scratchpad, TAG_CITEM_SCRATCHPAD };
+	TagMap["groundstatus"] = { gstat, TAG_CITEM_GROUNDSTATUS };
+	TagMap["comms"] = { commType, TAG_CITEM_COMMTYPE };
 
 	return TagMap;
 }
@@ -1687,7 +1689,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			graphics.SetPageUnit(Gdiplus::UnitPixel);
 			graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
-			SolidBrush AlphaBrush(Color(CurrentConfig->getActiveProfile()["filters"]["night_alpha_setting"].GetInt(), 0, 0, 0));			
+			SolidBrush AlphaBrush(Color(CurrentConfig->getActiveProfile()["filters"]["night_alpha_setting"].GetInt(), 0, 0, 0));
 
 			CRect FullScreenArea(GetRadarArea());
 			FullScreenArea.top = FullScreenArea.top - 1;
@@ -1705,25 +1707,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		return;
 
 	Logger::info("Phase == REFRESH_PHASE_BEFORE_TAGS");
-
-	struct Utils
-	{
-		static RECT GetAreaFromText(CDC * dc, const char* text, POINT Pos)
-		{
-			RECT Area = { Pos.x, Pos.y, Pos.x + dc->GetTextExtent(text).cx, Pos.y + dc->GetTextExtent(text).cy };
-			return Area;
-		}
-		static const char* getEnumString(TagTypes type)
-		{
-			if (type == TagTypes::Departure)
-				return "departure";
-			if (type == TagTypes::Arrival)
-				return "arrival";
-			if (type == TagTypes::Uncorrelated)
-				return "uncorrelated";
-			return "airborne";
-		}
-	};
 
 	// Timer each seconds
 	clock_final = clock() - clock_init;
@@ -1747,7 +1730,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	dc.Attach(hDC);
 
 	// Set a clipping region to not draw over the chatbox
-    ExcludeClipRect(dc, GetChatArea().left, GetChatArea().top, GetChatArea().right, GetChatArea().bottom);
+	ExcludeClipRect(dc, GetChatArea().left, GetChatArea().top, GetChatArea().right, GetChatArea().bottom);
 
 	// Creating the gdi+ graphics
 	Gdiplus::Graphics graphics(hDC);
@@ -1820,22 +1803,22 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt));
 
 		CRadarTargetPositionData RtPos = rt.GetPosition();
-		
+
 		if (Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
 
 			PointF graphicalPoints[4][PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS];
 
 			for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
 				// Convert from lon/lat to pixels. Has to be done here otherwise things like zooming and panning preserve the old shape.				
-				POINT hist0 = ConvertCoordFromPositionToPixel(Patatoides[callsign].points[i]);			
+				POINT hist0 = ConvertCoordFromPositionToPixel(Patatoides[callsign].points[i]);
 				graphicalPoints[0][i] = { REAL(hist0.x), REAL(hist0.y) };
 			}
 
 			if (rt.GetGS() > 2) { // Only compute pixel positions if we're gonna draw them
-				for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {					
+				for (int i = 0; i < PATATOIDE_NUM_INNER_POINTS*PATATOIDE_NUM_OUTER_POINTS; i++) {
 					POINT hist3 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_three_points[i]);
 					POINT hist2 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_two_points[i]);
-					POINT hist1 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_one_points[i]);					
+					POINT hist1 = ConvertCoordFromPositionToPixel(Patatoides[callsign].history_one_points[i]);
 
 					graphicalPoints[3][i] = { REAL(hist3.x), REAL(hist3.y) };
 					graphicalPoints[2][i] = { REAL(hist2.x), REAL(hist2.y) };
@@ -1858,7 +1841,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			graphics.FillPolygon(&H_Brush, graphicalPoints[0], PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 		}
 
-		
+
 		int TrailNumber = Trail_Gnd;
 		if (reportedGs > 50)
 			TrailNumber = Trail_App;
@@ -1880,7 +1863,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
 		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
 		CPen* pqOrigPen = dc.SelectObject(&qTrailPen);
-		
+
 		if (RtPos.GetTransponderC()) {
 			dc.MoveTo({ acPosPix.x, acPosPix.y - 6 });
 			dc.LineTo({ acPosPix.x - 6, acPosPix.y });
@@ -1950,340 +1933,12 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	graphics.SetSmoothingMode(SmoothingModeDefault);
 
-#pragma region tags
-	// Drawing the Tags
-	Logger::info("Tags loop");
-	for (rt = GetPlugIn()->RadarTargetSelectFirst();
-		rt.IsValid();
-		rt = GetPlugIn()->RadarTargetSelectNext(rt)) {
-		if (!rt.IsValid())
-			continue;
-
-		CRadarTargetPositionData RtPos = rt.GetPosition();
-		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
-		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
-		int reportedGs = RtPos.GetReportedGS();
-
-		// Filtering the targets
-
-		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
-		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
-		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
-		bool isAcDisplayed = isVisible(rt);
-
-		bool AcisCorrelated = IsCorrelated(fp, rt);
-
-		if (!AcisCorrelated && reportedGs < 3)
-			isAcDisplayed = false;
-
-		//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
-			//isAcDisplayed = false;
-
-		if (!isAcDisplayed)
-			continue;
-
-		// Getting the tag center/offset
-
-		POINT TagCenter;
-		map<CBString, POINT>::iterator it = TagsOffsets.find(rt.GetCallsign());
-		if (it != TagsOffsets.end()) {
-			TagCenter = { acPosPix.x + it->second.x, acPosPix.y + it->second.y };
-		}
-		else {
-			// Use angle:
-
-			if (TagAngles.find(rt.GetCallsign()) == TagAngles.end())
-				TagAngles[rt.GetCallsign()] = 270.0f;
-
-			int lenght = LeaderLineDefaultlenght;
-			if (TagLeaderLineLength.find(rt.GetCallsign()) != TagLeaderLineLength.end())
-				lenght = TagLeaderLineLength[rt.GetCallsign()];
-
-			TagCenter.x = long(acPosPix.x + float(lenght * cos(DegToRad(TagAngles[rt.GetCallsign()]))));
-			TagCenter.y = long(acPosPix.y + float(lenght * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
-		}
-
-		TagTypes TagType = TagTypes::Departure;
-		TagTypes ColorTagType = TagTypes::Departure;
-
-		if (fp.IsValid() && StartsWith(fp.GetFlightPlanData().GetDestination(), ActiveAirport)) {
-			// Circuit aircraft are treated as departures; not arrivals
-			if (!StartsWith(fp.GetFlightPlanData().GetOrigin(), ActiveAirport)) {
-				TagType = TagTypes::Arrival;
-				ColorTagType = TagTypes::Arrival;
-			}
-		}
-
-		if (rt.GetPosition().GetPressureAltitude() > CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt()) {
-			TagType = TagTypes::Airborne;
-
-			// Is "use_departure_arrival_coloring" enabled? if not, then use the airborne colors
-			bool useDepArrColors = CurrentConfig->getActiveProfile()["labels"]["airborne"]["use_departure_arrival_coloring"].GetBool();
-			if (!useDepArrColors) {
-				ColorTagType = TagTypes::Airborne;
-			}
-		}
-
-		if (!AcisCorrelated && reportedGs >= 3) {
-			TagType = TagTypes::Uncorrelated;
-			ColorTagType = TagTypes::Uncorrelated;
-		}
-
-		map<CBString, TagItem> TagMap = GenerateTagData(rt, fp, this, ActiveAirport);
-
-		//
-		// ----- Now the hard part, drawing (using gdi+) -------
-		//
-
-		// Get the TAG label settings
-		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
-
-		// First we need to figure out the tag size
-		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
-		RectF mesureRect;
-		graphics.MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		auto blankWidth = mesureRect.GetRight();
-
-		// default font size
-		mesureRect = RectF(0, 0, 0, 0);
-		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		auto oneLineHeight = mesureRect.GetBottom();
-
-		// bigger font size if used for 1st TAG line		
-		CBString font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
-		wstring wide_font_name = ToWString(font_name);
-		
-		float fontsize = customFont->GetSize();
-		double fontSizeScaling = 1.0;
-		if (LabelsSettings[Utils::getEnumString(ColorTagType)].HasMember("first_line_font_factor")) {
-			fontSizeScaling = LabelsSettings[Utils::getEnumString(ColorTagType)]["first_line_font_factor"].GetDouble();
-			fontsize = round((float)fontSizeScaling * fontsize);
-		}
-		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel); ;
-
-		mesureRect = RectF(0, 0, 0, 0);
-		graphics.MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
-			firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-		auto firstLineHeight = mesureRect.GetBottom();
-
-		// get label lines definitions
-		const char* def = "definition";
-		if (tagDetailed.count(rt.GetCallsign()) > 0) {
-			def = "definition_full";
-		}
-
-		const Value& LabelLines = LabelsSettings[Utils::getEnumString(TagType)][def];
-		vector<vector<TagItem>> ReplacedLabelLines;
-
-		if (!LabelLines.IsArray())
-			return;
-
-		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
-
-			const Value& line = LabelLines[i];
-			vector<TagItem> lineTagItemArray;
-
-			// Adds one line height
-			if (i == 0) {
-				TagHeight += firstLineHeight; // special case 1st line
-			}
-			else {
-				TagHeight += oneLineHeight;
-			}
-
-			Gdiplus::REAL TempTagWidth = 0;
-
-			for (unsigned int j = 0; j < line.Size(); j++) {
-				mesureRect = RectF(0, 0, 0, 0);
-				CBString tagKey = line[j].GetString();
-
-				//for (auto& kv : TagReplacingMap)
-					//replaceAll(element, kv.first, kv.second);
-
-				lineTagItemArray.push_back(TagMap[tagKey]);
-
-				wstring wstr = ToWString(TagMap[tagKey].value);
-				if (i == 0) {
-					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
-				}
-				else {
-					graphics.MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
-				}
-				TempTagWidth += mesureRect.GetRight();
-
-				if (j != line.Size() - 1)
-					TempTagWidth += blankWidth;
-			}
-
-			TagWidth = max(TagWidth, TempTagWidth);
-
-			ReplacedLabelLines.push_back(lineTagItemArray);
-		}
+	// --------------
+	// Drawing Tags
+	// --------------
 	
-		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["background_color"]);
-		if (ColorTagType == TagTypes::Departure) {
-			if (TagMap["asid"].value != "" && CurrentConfig->isSidColorAvail(TagMap["asid"].value, ActiveAirport)) {
-				definedBackgroundColor = CurrentConfig->getSidColor(TagMap["asid"].value, ActiveAirport);
-			}
+	DrawTags(&graphics, false);
 
-			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagMap["asid"].value == "" && LabelsSettings[Utils::getEnumString(ColorTagType)].HasMember("nosid_color")) {
-				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["nosid_color"]);
-			}
-
-			if (TagMap["actype"].value == ACT_TYPE_EMPTY_SPACES && LabelsSettings[Utils::getEnumString(ColorTagType)].HasMember("nofpl_color")) {
-				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["nofpl_color"]);
-			}
-		}
-
-		Color TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
-			definedBackgroundColor,
-			CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["background_color_on_runway"]),
-			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
-
-		// We need to figure out if the tag color changes according to RIMCAS alerts, or not
-		bool rimcasLabelOnly = CurrentConfig->getActiveProfile()["rimcas"]["rimcas_label_only"].GetBool();
-
-		if (rimcasLabelOnly)
-			TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
-				definedBackgroundColor,
-				CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["background_color_on_runway"]));
-
-		TagBackgroundColor = ColorManager->get_corrected_color("label", TagBackgroundColor);
-
-		// Drawing the tag background
-		CRect TagBackgroundRect((int)(TagCenter.x - (TagWidth / 2.0)), (int)(TagCenter.y - (TagHeight / 2.0)), (int)(TagCenter.x + (TagWidth / 2.0)), (int)(TagCenter.y + (TagHeight / 2.0)));
-		SolidBrush TagBackgroundBrush(TagBackgroundColor);
-		graphics.FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
-		if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign())) {
-			Pen pw(ColorManager->get_corrected_color("label", Color::White));
-			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
-		}
-		if (TagMap["groundstatus"].value == "DEPA" && ColorTagType == TagTypes::Departure) { // White border if tag is departure
-			Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
-			graphics.DrawRectangle(&pw, CopyRect(TagBackgroundRect));
-		}
-
-		// Drawing the tag text
-
-		SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[Utils::getEnumString(ColorTagType)]["text_color"])));
-		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
-		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
-
-		/*
-		SolidBrush GroundPushColor(TagBackgroundColor);
-		SolidBrush GroundTaxiColor(TagBackgroundColor);
-		SolidBrush GroundDepaColor(TagBackgroundColor);
-		if (LabelsSettings.HasMember("groundstatus_colors")) {
-			GroundPushColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
-			GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
-			GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
-		}
-		*/
-
-		// Drawing the leader line
-		RECT TagBackRectData = TagBackgroundRect;
-		POINT toDraw1, toDraw2;
-		if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
-			graphics.DrawLine(&Pen(ColorManager->get_corrected_color("symbol", Color::White)), PointF(Gdiplus::REAL(acPosPix.x), Gdiplus::REAL(acPosPix.y)), PointF(Gdiplus::REAL(toDraw1.x), Gdiplus::REAL(toDraw1.y)));
-
-		// If we use a RIMCAS label only, we display it, and adapt the rectangle
-		CRect oldCrectSave = TagBackgroundRect;
-
-		if (rimcasLabelOnly) {
-			Color RimcasLabelColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(), Color::AliceBlue, Color::AliceBlue,
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
-
-			if (RimcasLabelColor.ToCOLORREF() != Color(Color::AliceBlue).ToCOLORREF()) {
-				RimcasLabelColor = ColorManager->get_corrected_color("label", RimcasLabelColor);
-				int rimcas_height = 0;
-
-				wstring rimcasw = L"ALERT";
-				RectF RectRimcas_height;
-
-				graphics.MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
-				rimcas_height = int(RectRimcas_height.GetBottom());
-
-				// Drawing the rectangle
-
-				CRect RimcasLabelRect(TagBackgroundRect.left, TagBackgroundRect.top - rimcas_height, TagBackgroundRect.right, TagBackgroundRect.top);
-				graphics.FillRectangle(&SolidBrush(RimcasLabelColor), CopyRect(RimcasLabelRect));
-				TagBackgroundRect.top -= rimcas_height;
-
-				// Drawing the text
-				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
-				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-				graphics.DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
-			}
-		}
-
-		// Adding the tag screen object
-		tagAreas[rt.GetCallsign()] = TagBackgroundRect;
-		AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()));
-
-		TagBackgroundRect = oldCrectSave;
-
-		// Clickable zones
-		Gdiplus::REAL heightOffset = 0;
-		for (auto&& line : ReplacedLabelLines) {
-			Gdiplus::REAL widthOffset = 0;
-			for (auto&& tagItem : line) {
-				SolidBrush* color = &FontColor;
-				if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
-					color = &SquawkErrorColor;
-
-				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
-					color = &RimcasTextColor;
-
-				// Ground tag colors
-				/*if (tagItem.value == "PUSH")
-					color = &GroundPushColor;
-				if (tagItem.value == "TAXI")
-					color = &GroundTaxiColor;
-				if (tagItem.value == "DEPA")
-					color = &GroundDepaColor;
-					*/
-				RectF mRect(0, 0, 0, 0);
-				wstring welement = ToWString(tagItem.value);
-				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
-
-				if (heightOffset == 0) { // first line
-					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&stformat, color);
-					
-					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-						PointF(0, 0), &stformat, &mRect);
-				}
-				else {
-					graphics.DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
-						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-						&stformat, color);
-
-					graphics.MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
-						PointF(0, 0), &stformat, &mRect);
-				}
-
-				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
-					(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
-
-				AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
-
-				widthOffset += mRect.GetRight();
-				widthOffset += blankWidth;
-			}
-
-			if (heightOffset == 0) {
-				heightOffset += firstLineHeight;
-			}
-			else {
-				heightOffset += oneLineHeight;
-			}
-		}
-	}
-
-#pragma endregion Drawing of the tags
 
 	// Releasing the hDC after the drawing
 	graphics.ReleaseHDC(hDC);
@@ -2306,7 +1961,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 		// Drawing the runway name
 		const char* tempS = rwy.rwyInUse;
-		dc.SetTextColor(RGB(255,255,255));
+		dc.SetTextColor(RGB(255, 255, 255));
 		dc.TextOutA(center.x - dc.GetTextExtent(tempS).cx / 2, center.y - dc.GetTextExtent(tempS).cy / 2, tempS);
 
 		// Drawing arcs
@@ -2361,7 +2016,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			LONG arcTextY = arcLineY + LONG(cosAngle*textSize.cy*1.2);
 			dc.SetTextColor(aircraft.colors.second);
 			dc.SetTextAlign(TA_CENTER);
-			dc.TextOutA(arcTextX, arcTextY-textSize.cy, (const char*)aircraft.callsign);
+			dc.TextOutA(arcTextX, arcTextY - textSize.cy, (const char*)aircraft.callsign);
 
 			char distanceString[8];
 			sprintf_s(distanceString, "%.1f", aircraft.distance);
@@ -2380,7 +2035,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		AddScreenObject(RIMCAS_IAW, rwy.name, baseRect, true, "");
 	}
 
-	RestoreDC(dc, oldDC);	
+	RestoreDC(dc, oldDC);
 
 	Logger::info("Menu bar lists");
 
@@ -2544,7 +2199,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		POINT TextPos = { point.x + 20, point.y };
 
 		if (!DistanceToolActive) {
-			char buffer[32];			
+			char buffer[32];
 			sprintf_s(buffer, "%.1f\xB0 / %.1fm", Bearing, Distance);
 			COLORREF old_color = dc.SetTextColor(RGB(255, 255, 255));
 			dc.TextOutA(TextPos.x, TextPos.y, buffer);
@@ -2690,9 +2345,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		// We then rotate the tags until we did a 360 or there is no more conflicts
 
 		POINT acPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(areas.first).GetPosition().GetPosition());
-		int lenght = LeaderLineDefaultlenght;
+		int length = LeaderLineDefaultlength;
 		if (TagLeaderLineLength.find(areas.first) != TagLeaderLineLength.end())
-			lenght = TagLeaderLineLength[areas.first];
+			length = TagLeaderLineLength[areas.first];
 
 		int width = areas.second.Width();
 		int height = areas.second.Height();
@@ -2702,8 +2357,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			double newangle = fmod(TagAngles[areas.first] + rotated, 360.0f);
 
 			POINT TagCenter;
-			TagCenter.x = long(acPosPix.x + float(lenght * cos(DegToRad(newangle))));
-			TagCenter.y = long(acPosPix.y + float(lenght * sin(DegToRad(newangle))));
+			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(newangle))));
+			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(newangle))));
 
 			CRect NewRectangle(TagCenter.x - (width / 2), TagCenter.y - (height / 2), TagCenter.x + (width / 2), TagCenter.y + (height / 2));
 			NewRectangle.NormalizeRect();
@@ -2753,11 +2408,337 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		int appWindowId = it->first;
 		appWindows[appWindowId]->render(hDC, this, &graphics, mouseLocation, DistanceTools);
 	}
-	
+
 	dc.Detach();
 
 	Logger::info("END " + CBString(__FUNCSIG__));
 
+}
+
+
+void CSMRRadar::DrawTags(Gdiplus::Graphics* graphics, bool isInsetWindow)
+{	
+	Logger::info("Tags loop");
+	for (auto rt = GetPlugIn()->RadarTargetSelectFirst(); rt.IsValid(); rt = GetPlugIn()->RadarTargetSelectNext(rt)) {
+
+		if (!rt.IsValid())
+			continue;
+
+		POINT acPosPix = ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition());
+		CFlightPlan fp = GetPlugIn()->FlightPlanSelect(rt.GetCallsign());
+		int reportedGs = rt.GetPosition().GetReportedGS();
+
+		// Filtering the targets
+		int radarRange = CurrentConfig->getActiveProfile()["filters"]["radar_range_nm"].GetInt();
+		int altitudeFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_alt"].GetInt();
+		int speedFilter = CurrentConfig->getActiveProfile()["filters"]["hide_above_spd"].GetInt();
+		bool isAcDisplayed = isVisible(rt);
+
+		bool AcisCorrelated = IsCorrelated(fp, rt);
+
+		if (!AcisCorrelated && reportedGs < 3)
+			isAcDisplayed = false;
+
+		//if (std::find(ReleasedTracks.begin(), ReleasedTracks.end(), rt.GetSystemID()) != ReleasedTracks.end())
+		//isAcDisplayed = false;
+
+		if (!isAcDisplayed)
+			continue;
+
+		// Getting the tag center/offset
+		POINT TagCenter;
+		map<CBString, POINT>::iterator it = TagsOffsets.find(rt.GetCallsign());
+		if (it != TagsOffsets.end()) {
+			TagCenter = { acPosPix.x + it->second.x, acPosPix.y + it->second.y };
+		}
+		else {
+			// Use angle:
+			if (TagAngles.find(rt.GetCallsign()) == TagAngles.end())
+				TagAngles[rt.GetCallsign()] = 270.0f;
+
+			int length = LeaderLineDefaultlength;
+			if (TagLeaderLineLength.find(rt.GetCallsign()) != TagLeaderLineLength.end())
+				length = TagLeaderLineLength[rt.GetCallsign()];
+
+			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(TagAngles[rt.GetCallsign()]))));
+			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(TagAngles[rt.GetCallsign()]))));
+		}
+
+		TagTypes TagType = TagTypes::Departure;
+		TagTypes ColorTagType = TagTypes::Departure;
+
+		if (fp.IsValid() && StartsWith(fp.GetFlightPlanData().GetDestination(), ActiveAirport)) {
+			// Circuit aircraft are treated as departures; not arrivals
+			if (!StartsWith(fp.GetFlightPlanData().GetOrigin(), ActiveAirport)) {
+				TagType = TagTypes::Arrival;
+				ColorTagType = TagTypes::Arrival;
+			}
+		}
+
+		if (rt.GetPosition().GetPressureAltitude() > CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt()) {
+			TagType = TagTypes::Airborne;
+
+			// Is "use_departure_arrival_coloring" enabled? if not, then use the airborne colors
+			bool useDepArrColors = CurrentConfig->getActiveProfile()["labels"]["airborne"]["use_departure_arrival_coloring"].GetBool();
+			if (!useDepArrColors) {
+				ColorTagType = TagTypes::Airborne;
+			}
+		}
+
+		if (!AcisCorrelated && reportedGs >= 3) {
+			TagType = TagTypes::Uncorrelated;
+			ColorTagType = TagTypes::Uncorrelated;
+		}
+
+		map<CBString, TagItem> TagMap = GenerateTagData(rt, fp, this, ActiveAirport);
+
+		// Get the TAG label settings
+		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
+
+		// First we need to figure out the tag size
+		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
+		RectF mesureRect;
+		graphics->MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		auto blankWidth = mesureRect.GetRight();
+
+		// default font size
+		mesureRect = RectF(0, 0, 0, 0);
+		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		auto oneLineHeight = mesureRect.GetBottom();
+
+		// bigger font size if used for 1st TAG line		
+		CBString font_name = CurrentConfig->getActiveProfile()["font"]["font_name"].GetString();
+		wstring wide_font_name = ToWString(font_name);
+
+		float fontsize = customFont->GetSize();
+		double fontSizeScaling = 1.0;
+		if (LabelsSettings[getEnumString(ColorTagType)].HasMember("first_line_font_factor")) {
+			fontSizeScaling = LabelsSettings[getEnumString(ColorTagType)]["first_line_font_factor"].GetDouble();
+			fontsize = round((float)fontSizeScaling * fontsize);
+		}
+		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel); ;
+
+		mesureRect = RectF(0, 0, 0, 0);
+		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
+			firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		auto firstLineHeight = mesureRect.GetBottom();
+
+		// get label lines definitions
+		const char* def = "definition";
+		if (tagDetailed.count(rt.GetCallsign()) > 0) {
+			def = "definition_full";
+		}
+
+		const Value& LabelLines = LabelsSettings[getEnumString(TagType)][def];
+		vector<vector<TagItem>> ReplacedLabelLines;
+
+		if (!LabelLines.IsArray())
+			return;
+
+		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
+
+			const Value& line = LabelLines[i];
+			vector<TagItem> lineTagItemArray;
+
+			// Adds one line height
+			if (i == 0) {
+				TagHeight += firstLineHeight; // special case 1st line
+			}
+			else {
+				TagHeight += oneLineHeight;
+			}
+
+			Gdiplus::REAL TempTagWidth = 0;
+
+			for (unsigned int j = 0; j < line.Size(); j++) {
+				mesureRect = RectF(0, 0, 0, 0);
+				CBString tagKey = line[j].GetString();
+
+				//for (auto& kv : TagReplacingMap)
+				//replaceAll(element, kv.first, kv.second);
+
+				lineTagItemArray.push_back(TagMap[tagKey]);
+
+				wstring wstr = ToWString(TagMap[tagKey].value);
+				if (i == 0) {
+					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
+				}
+				else {
+					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+				}
+				TempTagWidth += mesureRect.GetRight();
+
+				if (j != line.Size() - 1)
+					TempTagWidth += blankWidth;
+			}
+
+			TagWidth = max(TagWidth, TempTagWidth);
+
+			ReplacedLabelLines.push_back(lineTagItemArray);
+		}
+
+		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["background_color"]);
+		if (ColorTagType == TagTypes::Departure) {
+			if (TagMap["asid"].value != "" && CurrentConfig->isSidColorAvail(TagMap["asid"].value, ActiveAirport)) {
+				definedBackgroundColor = CurrentConfig->getSidColor(TagMap["asid"].value, ActiveAirport);
+			}
+
+			if (fp.GetFlightPlanData().GetPlanType() == "I" && TagMap["asid"].value == "" && LabelsSettings[getEnumString(ColorTagType)].HasMember("nosid_color")) {
+				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["nosid_color"]);
+			}
+
+			if (TagMap["actype"].value == ACT_TYPE_EMPTY_SPACES && LabelsSettings[getEnumString(ColorTagType)].HasMember("nofpl_color")) {
+				definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["nofpl_color"]);
+			}
+		}
+
+		Color TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
+			definedBackgroundColor,
+			CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["background_color_on_runway"]),
+			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
+			CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
+
+		// We need to figure out if the tag color changes according to RIMCAS alerts, or not
+		bool rimcasLabelOnly = CurrentConfig->getActiveProfile()["rimcas"]["rimcas_label_only"].GetBool();
+
+		if (rimcasLabelOnly)
+			TagBackgroundColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(),
+				definedBackgroundColor,
+				CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["background_color_on_runway"]));
+
+		TagBackgroundColor = ColorManager->get_corrected_color("label", TagBackgroundColor);
+
+		// Drawing the tag background
+		CRect TagBackgroundRect((int)(TagCenter.x - (TagWidth / 2.0)), (int)(TagCenter.y - (TagHeight / 2.0)), (int)(TagCenter.x + (TagWidth / 2.0)), (int)(TagCenter.y + (TagHeight / 2.0)));
+		SolidBrush TagBackgroundBrush(TagBackgroundColor);
+		graphics->FillRectangle(&TagBackgroundBrush, CopyRect(TagBackgroundRect));
+		if (mouseWithin(TagBackgroundRect) || IsTagBeingDragged(rt.GetCallsign())) {
+			Pen pw(ColorManager->get_corrected_color("label", Color::White));
+			graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+		}
+		if (TagMap["groundstatus"].value == "DEPA" && ColorTagType == TagTypes::Departure) { // White border if tag is departure
+			Pen pw(ColorManager->get_corrected_color("label", Color::White), 2);
+			graphics->DrawRectangle(&pw, CopyRect(TagBackgroundRect));
+		}
+
+		// Drawing the tag text
+
+		SolidBrush FontColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["text_color"])));
+		SolidBrush SquawkErrorColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["squawk_error_color"])));
+		SolidBrush RimcasTextColor(CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["alert_text_color"]));
+
+		/*
+		SolidBrush GroundPushColor(TagBackgroundColor);
+		SolidBrush GroundTaxiColor(TagBackgroundColor);
+		SolidBrush GroundDepaColor(TagBackgroundColor);
+		if (LabelsSettings.HasMember("groundstatus_colors")) {
+		GroundPushColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["push"])));
+		GroundTaxiColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["taxi"])));
+		GroundDepaColor.SetColor(ColorManager->get_corrected_color("label", CurrentConfig->getConfigColor(LabelsSettings["groundstatus_colors"]["depa"])));
+		}
+		*/
+
+		// Drawing the leader line
+		RECT TagBackRectData = TagBackgroundRect;
+		POINT toDraw1, toDraw2;
+		if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
+			graphics->DrawLine(&Pen(ColorManager->get_corrected_color("symbol", Color::White)), PointF(Gdiplus::REAL(acPosPix.x), Gdiplus::REAL(acPosPix.y)), PointF(Gdiplus::REAL(toDraw1.x), Gdiplus::REAL(toDraw1.y)));
+
+		// If we use a RIMCAS label only, we display it, and adapt the rectangle
+		CRect oldCrectSave = TagBackgroundRect;
+
+		if (rimcasLabelOnly) {
+			Color RimcasLabelColor = RimcasInstance->GetAircraftColor(rt.GetCallsign(), Color::AliceBlue, Color::AliceBlue,
+				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_one"]),
+				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["rimcas"]["background_color_stage_two"]));
+
+			if (RimcasLabelColor.ToCOLORREF() != Color(Color::AliceBlue).ToCOLORREF()) {
+				RimcasLabelColor = ColorManager->get_corrected_color("label", RimcasLabelColor);
+				int rimcas_height = 0;
+
+				wstring rimcasw = L"ALERT";
+				RectF RectRimcas_height;
+
+				graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
+				rimcas_height = int(RectRimcas_height.GetBottom());
+
+				// Drawing the rectangle
+
+				CRect RimcasLabelRect(TagBackgroundRect.left, TagBackgroundRect.top - rimcas_height, TagBackgroundRect.right, TagBackgroundRect.top);
+				graphics->FillRectangle(&SolidBrush(RimcasLabelColor), CopyRect(RimcasLabelRect));
+				TagBackgroundRect.top -= rimcas_height;
+
+				// Drawing the text
+				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
+				stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
+				graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+			}
+		}
+
+		// Adding the tag screen object
+		tagAreas[rt.GetCallsign()] = TagBackgroundRect;
+		AddScreenObject(DRAWING_TAG, rt.GetCallsign(), TagBackgroundRect, true, GetBottomLine(rt.GetCallsign()));
+
+		TagBackgroundRect = oldCrectSave;
+
+		// Clickable zones
+		Gdiplus::REAL heightOffset = 0;
+		for (auto&& line : ReplacedLabelLines) {
+			Gdiplus::REAL widthOffset = 0;
+			for (auto&& tagItem : line) {
+				SolidBrush* color = &FontColor;
+				if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
+					color = &SquawkErrorColor;
+
+				if (RimcasInstance->getAlert(rt.GetCallsign()) != CRimcas::NoAlert)
+					color = &RimcasTextColor;
+
+				// Ground tag colors
+				/*if (tagItem.value == "PUSH")
+				color = &GroundPushColor;
+				if (tagItem.value == "TAXI")
+				color = &GroundTaxiColor;
+				if (tagItem.value == "DEPA")
+				color = &GroundDepaColor;
+				*/
+				RectF mRect(0, 0, 0, 0);
+				wstring welement = ToWString(tagItem.value);
+				Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
+
+				if (heightOffset == 0) { // first line
+					graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+						&stformat, color);
+
+					graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						PointF(0, 0), &stformat, &mRect);
+				}
+				else {
+					graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
+						PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
+						&stformat, color);
+
+					graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
+						PointF(0, 0), &stformat, &mRect);
+				}
+
+				CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
+					(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
+
+				AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
+
+				widthOffset += mRect.GetRight();
+				widthOffset += blankWidth;
+			}
+
+			if (heightOffset == 0) {
+				heightOffset += firstLineHeight;
+			}
+			else {
+				heightOffset += oneLineHeight;
+			}
+		}
+	}
 }
 
 // ReSharper restore CppMsExtAddressOfClassRValue
@@ -2768,7 +2749,7 @@ void CSMRRadar::EuroScopePlugInExitCustom()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState())
 
-	if (cursor != nullptr && cursor != NULL) {
-		SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
-	}
+		if (cursor != nullptr && cursor != NULL) {
+			SetWindowLong(pluginWindow, GWL_WNDPROC, (LONG)gSourceProc);
+		}
 }

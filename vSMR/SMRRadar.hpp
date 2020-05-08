@@ -293,12 +293,25 @@ public:
 		return false;
 	}
 
+	static const char* getEnumString(TagTypes type)
+	{
+		if (type == TagTypes::Departure)
+			return "departure";
+		if (type == TagTypes::Arrival)
+			return "arrival";
+		if (type == TagTypes::Uncorrelated)
+			return "uncorrelated";
+		return "airborne";
+	}
+
 
 	void SMRSetCursor(HCURSOR targetCursor);
 
 	void CorrelateCursor();
 	void LoadCustomFont();
 	void LoadProfile(CBString profileName);
+
+	void DrawTags(Gdiplus::Graphics* graphics, bool isInsetWindow);
 
 	virtual void OnAsrContentLoaded(bool Loaded);
 	virtual void OnAsrContentToBeSaved();
