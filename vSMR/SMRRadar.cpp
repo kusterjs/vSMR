@@ -130,10 +130,8 @@ CSMRRadar::~CSMRRadar()
 		//this->EuroScopePlugInExitCustom();
 	}
 	catch (exception &e) {
-		stringstream s;
-		s << e.what() << endl;
-		//AfxMessageBox("Error occurred " + s.str()).c_str());
-		assert(false);
+		auto msg = bformat("Error occured: %s\n", e.what());		
+		AfxMessageBox(bstr2cstr(msg, ' '));
 	}
 	// Shutting down GDI+
 	GdiplusShutdown(m_gdiplusToken);
@@ -493,7 +491,7 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 	}
 
 	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || 
-		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD) {
+		ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);
 
 		if (!Released) {
@@ -919,7 +917,8 @@ void CSMRRadar::OnDoubleClickScreenObject(int ObjectType, const char * sObjectId
 	Logger::info(__FUNCSIG__);
 	mouseLocation = Pt;
 
-	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID || ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS) {
+	if (ObjectType == DRAWING_TAG || ObjectType == TAG_CITEM_MANUALCORRELATE || ObjectType == TAG_CITEM_CALLSIGN || ObjectType == TAG_CITEM_FPBOX || ObjectType == TAG_CITEM_RWY || ObjectType == TAG_CITEM_SID 
+		|| ObjectType == TAG_CITEM_GATE || ObjectType == TAG_CITEM_NO || ObjectType == TAG_CITEM_GROUNDSTATUS || ObjectType == TAG_CITEM_SCRATCHPAD || TAG_CITEM_COMMTYPE) {
 		CRadarTarget rt = GetPlugIn()->RadarTargetSelect(sObjectId);		
 		GetPlugIn()->SetASELAircraft(GetPlugIn()->FlightPlanSelect(sObjectId));  // make sure the correct aircraft is selected before calling 'StartTagFunction'
 
@@ -1164,19 +1163,15 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 		return;
 
 	CRadarTargetPositionData RtPos = RadarTarget.GetPosition();
+	CBString callsign = RadarTarget.GetCallsign();
 
-	Patatoides[RadarTarget.GetCallsign()].History_three_points = Patatoides[RadarTarget.GetCallsign()].History_two_points;
-	Patatoides[RadarTarget.GetCallsign()].History_two_points = Patatoides[RadarTarget.GetCallsign()].History_one_points;
-	Patatoides[RadarTarget.GetCallsign()].History_one_points = Patatoides[RadarTarget.GetCallsign()].points;
+	CFlightPlan fp = GetPlugIn()->FlightPlanSelect(callsign);
 
-	Patatoides[RadarTarget.GetCallsign()].points.clear();
-
-	CFlightPlan fp = GetPlugIn()->FlightPlanSelect(RadarTarget.GetCallsign());
-
+	// Compute current target shape points
 	// All units in M
 	float width = 34.0f;
 	float cabin_width = 4.0f;
-	float lenght = 38.0f;
+	float length = 38.0f;
 
 	if (fp.IsValid()) {
 		char wtc = fp.GetFlightPlanData().GetAircraftWtc();
@@ -1184,26 +1179,26 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 		if (wtc == 'L') {
 			width = 13.0f;
 			cabin_width = 2.0f;
-			lenght = 12.0f;
+			length = 12.0f;
 		}
 
 		if (wtc == 'H') {
 			width = 61.0f;
 			cabin_width = 7.0f;
-			lenght = 64.0f;
+			length = 64.0f;
 		}
 
 		if (wtc == 'J') {
 			width = 80.0f;
 			cabin_width = 7.0f;
-			lenght = 73.0f;
+			length = 73.0f;
 		}
 	}
 
 
 	width = width + float((rand() % 5) - 2);
 	cabin_width = cabin_width + float((rand() % 3) - 1);
-	lenght = lenght + float((rand() % 5) - 2);
+	length = length + float((rand() % 5) - 2);
 
 
 	float trackHead = float(RadarTarget.GetPosition().GetReportedHeadingTrueNorth());
@@ -1211,13 +1206,11 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 	float leftTrackHead = float(fmod(trackHead - 90.0f, 360));
 	float rightTrackHead = float(fmod(trackHead + 90.0f, 360));
 
-	float HalfLenght = lenght / 2.0f;
+	float HalfLenght = length / 2.0f;
 	float HalfCabWidth = cabin_width / 2.0f;
 	float HalfSpanWidth = width / 2.0f;
 
 	// Base shape is like a deformed cross
-
-
 	CPosition topMiddle = Haversine(RtPos.GetPosition(), trackHead, HalfLenght);
 	CPosition topLeft = Haversine(topMiddle, leftTrackHead, HalfCabWidth);
 	CPosition topRight = Haversine(topMiddle, rightTrackHead, HalfCabWidth);
@@ -1237,7 +1230,7 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 	CPosition leftTop = Haversine(middleBottomLeft, leftTrackHead, 0.7f*HalfSpanWidth);
 	CPosition leftBottom = Haversine(leftTop, inverseTrackHead, cabin_width);
 
-	CPosition basePoints[12];
+	CPosition basePoints[PATATOIDE_NUM_OUTER_POINTS];
 	basePoints[0] = topLeft;
 	basePoints[1] = middleTopLeft;
 	basePoints[2] = leftTop;
@@ -1255,29 +1248,49 @@ void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
 	// ------
 
 	// Random points between points of base shape
-
-	for (int i = 0; i < 12; i++) {
+	PointF currentPoints[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+	for (int i = 0; i < PATATOIDE_NUM_OUTER_POINTS; i++) {
 
 		CPosition newPoint, lastPoint, endPoint, startPoint;
 
 		startPoint = basePoints[i];
-		if (i == 11) endPoint = basePoints[0];
+		if (i == PATATOIDE_NUM_OUTER_POINTS - 1) endPoint = basePoints[0];
 		else endPoint = basePoints[i + 1];
 
 		double dist, rndHeading;
 		dist = startPoint.DistanceTo(endPoint);
 
-		Patatoides[RadarTarget.GetCallsign()].points[i * 7] = { startPoint.m_Latitude, startPoint.m_Longitude };
+		currentPoints[i * PATATOIDE_NUM_INNER_POINTS] = { REAL(ConvertCoordFromPositionToPixel(startPoint).x), REAL(ConvertCoordFromPositionToPixel(startPoint).y) };
 		lastPoint = startPoint;
 
-		for (int k = 1; k < 7; k++) {
-
+		for (int k = 1; k < PATATOIDE_NUM_INNER_POINTS; k++) {
 			rndHeading = float(fmod(lastPoint.DirectionTo(endPoint) + (-25.0 + (rand() % 50 + 1)), 360));
 			newPoint = Haversine(lastPoint, rndHeading, dist * 200);
-			Patatoides[RadarTarget.GetCallsign()].points[(i * 7) + k] = { newPoint.m_Latitude, newPoint.m_Longitude };
+			PointF graphicsPoint = { REAL(ConvertCoordFromPositionToPixel(newPoint).x), REAL(ConvertCoordFromPositionToPixel(newPoint).y) };
+			currentPoints[(i * PATATOIDE_NUM_INNER_POINTS) + k] = graphicsPoint;
 			lastPoint = newPoint;
 		}
 	}
+
+	auto arraySize = sizeof(currentPoints); // same size for all
+	if (Patatoides.count(callsign) == 0) { // If callsign is not initialised in map -> add it with all history points initialised to current points
+		Patatoide_Points points;
+		Patatoides[callsign] = &points;
+		memcpy_s(Patatoides[callsign]->points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign]->history_one_points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign]->history_two_points, arraySize, currentPoints, arraySize);
+		memcpy_s(Patatoides[callsign]->history_three_points, arraySize, currentPoints, arraySize);
+	}
+	else {
+		memcpy_s(Patatoides[callsign]->history_three_points, arraySize, Patatoides[callsign]->history_two_points, arraySize);
+		memcpy_s(Patatoides[callsign]->history_two_points, arraySize, Patatoides[callsign]->history_two_points, arraySize);
+		memcpy_s(Patatoides[callsign]->history_one_points, arraySize, Patatoides[callsign]->points, arraySize);
+		memcpy_s(Patatoides[callsign]->points, arraySize, currentPoints, arraySize);
+	}
+
+	//Patatoides[RadarTarget.GetCallsign()].points.clear();
+
+
 }
 
 CBString CSMRRadar::GetBottomLine(const char * Callsign)
@@ -1402,24 +1415,22 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 	}
 	
 	// ----- Comms (voice/receive/text)
-	CBString commType = " ";
+	CBString commType = "";
 	if (fp.IsValid()) {
-		if (fp.GetControllerAssignedData().GetCommunicationType() == 't' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'T' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'r' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'R' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'v' ||
-			fp.GetControllerAssignedData().GetCommunicationType() == 'V') {
-			if (fp.GetControllerAssignedData().GetCommunicationType() != 'v' &&
-				fp.GetControllerAssignedData().GetCommunicationType() != 'V') {
-				commType = "/" + fp.GetControllerAssignedData().GetCommunicationType();
+
+		char ctrlerComType = fp.GetControllerAssignedData().GetCommunicationType();
+		char fpComType = fp.GetFlightPlanData().GetCommunicationType();
+
+		if (ctrlerComType == 't' ||	ctrlerComType == 'T' ||
+			ctrlerComType == 'r' ||	ctrlerComType == 'R' ||
+			ctrlerComType == 'v' ||	ctrlerComType == 'V') {
+			if (ctrlerComType != 'v' &&	ctrlerComType != 'V') {
+				commType.format("/%c", ctrlerComType);
 			}
 		}
-		else if (fp.GetFlightPlanData().GetCommunicationType() == 't' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'r' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'T' ||
-			fp.GetFlightPlanData().GetCommunicationType() == 'R') {
-			commType = "/" + fp.GetFlightPlanData().GetCommunicationType();
+		else if (fpComType == 't' || fpComType == 'T' ||
+				 fpComType == 'r' || fpComType == 'R') {
+			commType.format("/%c", fpComType);
 		}
 	}
 
@@ -1440,7 +1451,6 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 		actype = fp.GetFlightPlanData().GetAircraftFPType();
 	if (actype.length() > 4 && actype != ACT_TYPE_EMPTY_SPACES) {
 		actype.trunc(4);
-		assert(false);
 	}
 
 	// ----- Aircraft type that changes to squawk error -------
@@ -1806,111 +1816,48 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		if (!isAcDisplayed)
 			continue;
 
-		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt));
+		CBString callsign = rt.GetCallsign();
+		RimcasInstance->OnRefresh(rt, this, IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt));
 
 		CRadarTargetPositionData RtPos = rt.GetPosition();
+		
+		if (Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
+			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
+			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_three_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 
-		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
+			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
+			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_two_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 
-		if (rt.GetGS() > 5) {
-			POINT oldacPosPix;
-			CRadarTargetPositionData pAcPos = rt.GetPosition();
+			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
+			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_one_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 
-			for (int i = 1; i <= 2; i++) {
-				oldacPosPix = ConvertCoordFromPositionToPixel(pAcPos.GetPosition());
-				pAcPos = rt.GetPreviousPosition(pAcPos);
-				acPosPix = ConvertCoordFromPositionToPixel(pAcPos.GetPosition());
-
-				if (i == 1 && !Patatoides[rt.GetCallsign()].History_one_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-					SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_one_color"])));
-
-					PointF lpPoints[100];
-					for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_one_points.size(); i1++) {
-						CPosition pos;
-						pos.m_Latitude = Patatoides[rt.GetCallsign()].History_one_points[i1].x;
-						pos.m_Longitude = Patatoides[rt.GetCallsign()].History_one_points[i1].y;
-
-						lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-					}
-					graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_one_points.size());
-				}
-
-				if (i != 2) {
-					if (!Patatoides[rt.GetCallsign()].History_two_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-						SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-							CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_two_color"])));
-
-						PointF lpPoints[100];
-						for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_two_points.size(); i1++) {
-							CPosition pos;
-							pos.m_Latitude = Patatoides[rt.GetCallsign()].History_two_points[i1].x;
-							pos.m_Longitude = Patatoides[rt.GetCallsign()].History_two_points[i1].y;
-
-							lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-						}
-						graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_two_points.size());
-					}
-				}
-
-				if (i == 2 && !Patatoides[rt.GetCallsign()].History_three_points.empty() && Afterglow && CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
-					SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-						CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["history_three_color"])));
-
-					PointF lpPoints[100];
-					for (unsigned int i1 = 0; i1 < Patatoides[rt.GetCallsign()].History_three_points.size(); i1++) {
-						CPosition pos;
-						pos.m_Latitude = Patatoides[rt.GetCallsign()].History_three_points[i1].x;
-						pos.m_Longitude = Patatoides[rt.GetCallsign()].History_three_points[i1].y;
-
-						lpPoints[i1] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-					}
-					graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].History_three_points.size());
-				}
-			}
-
-			int TrailNumber = Trail_Gnd;
-			if (reportedGs > 50)
-				TrailNumber = Trail_App;
-
-			CRadarTargetPositionData previousPos = rt.GetPreviousPosition(rt.GetPosition());
-			for (int j = 1; j <= TrailNumber; j++) {
-				POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
-
-				graphics.FillRectangle(&SolidBrush(ColorManager->get_corrected_color("symbol", Gdiplus::Color::White)),
-					pCoord.x - 1, pCoord.y - 1, 2, 2);
-
-				previousPos = rt.GetPreviousPosition(previousPos);
-			}
+			H_Brush.SetColor(ColorManager->get_corrected_color("afterglow", CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
+			graphics.FillPolygon(&H_Brush, Patatoides[callsign]->history_one_points, PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS);
 		}
 
+		
+		int TrailNumber = Trail_Gnd;
+		if (reportedGs > 50)
+			TrailNumber = Trail_App;
 
-		if (CurrentConfig->getActiveProfile()["targets"]["show_primary_target"].GetBool()) {
+		CRadarTargetPositionData previousPos = rt.GetPreviousPosition(rt.GetPosition());
+		for (int j = 1; j <= TrailNumber; j++) {
+			POINT pCoord = ConvertCoordFromPositionToPixel(previousPos.GetPosition());
 
-			SolidBrush H_Brush(ColorManager->get_corrected_color("afterglow",
-				CurrentConfig->getConfigColor(CurrentConfig->getActiveProfile()["targets"]["target_color"])));
+			graphics.FillRectangle(&SolidBrush(ColorManager->get_corrected_color("symbol", Gdiplus::Color::White)),
+				pCoord.x - 1, pCoord.y - 1, 2, 2);
 
-			PointF lpPoints[100];
-			for (unsigned int i = 0; i < Patatoides[rt.GetCallsign()].points.size(); i++) {
-				CPosition pos;
-				pos.m_Latitude = Patatoides[rt.GetCallsign()].points[i].x;
-				pos.m_Longitude = Patatoides[rt.GetCallsign()].points[i].y;
-
-				lpPoints[i] = { REAL(ConvertCoordFromPositionToPixel(pos).x), REAL(ConvertCoordFromPositionToPixel(pos).y) };
-			}
-
-			graphics.FillPolygon(&H_Brush, lpPoints, Patatoides[rt.GetCallsign()].points.size());
+			previousPos = rt.GetPreviousPosition(previousPos);
 		}
-		acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
 
-		bool AcisCorrelated = IsCorrelated(GetPlugIn()->FlightPlanSelect(rt.GetCallsign()), rt);
-
+		bool AcisCorrelated = IsCorrelated(GetPlugIn()->FlightPlanSelect(callsign), rt);
 		if (!AcisCorrelated && reportedGs < 1 && !ReleaseInProgress && !AcquireInProgress)
 			continue;
 
+		POINT acPosPix = ConvertCoordFromPositionToPixel(RtPos.GetPosition());
 		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
 		CPen* pqOrigPen = dc.SelectObject(&qTrailPen);
-
+		
 		if (RtPos.GetTransponderC()) {
 			dc.MoveTo({ acPosPix.x, acPosPix.y - 6 });
 			dc.LineTo({ acPosPix.x - 6, acPosPix.y });
@@ -1964,7 +1911,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			dc.LineTo(acPosPix.x + 12, acPosPix.y + 6);
 		}
 
-		AddScreenObject(DRAWING_AC_SYMBOL, rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()) : rt.GetSystemID());
+		AddScreenObject(DRAWING_AC_SYMBOL, callsign, { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()) : rt.GetSystemID());
 
 		dc.SelectObject(pqOrigPen);
 	}

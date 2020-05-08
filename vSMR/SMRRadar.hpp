@@ -1,6 +1,5 @@
 #pragma once
 #include <EuroScopePlugIn.h>
-#include "bstrlib/bstrwrap.h"
 
 #include <vector>
 #include <map>
@@ -9,14 +8,17 @@
 #include <GdiPlus.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <thread>
+#include <memory>
+
+#include <asio/io_service.hpp>
+#include "bstrlib/bstrwrap.h"
+
 #include "Constant.hpp"
 #include "CallsignLookup.hpp"
 #include "Config.hpp"
 #include "Rimcas.hpp"
 #include "InsetWindow.h"
-#include <memory>
-#include <asio/io_service.hpp>
-#include <thread>
 #include "ColorManager.h"
 #include "Logger.h"
 
@@ -29,7 +31,8 @@ using namespace EuroScopePlugIn;
 	//static vector<string> ReleasedTracks;	
 //};
 
-#define PATATOIDES_NUM_POINTS 64
+#define PATATOIDE_NUM_OUTER_POINTS 12
+#define PATATOIDE_NUM_INNER_POINTS 7
 #define ACT_TYPE_EMPTY_SPACES "      "
 #define GATE_EMPTY_SPACES "           "
 #define SCRATCHPAD_EMPTY_SPACES "                          "
@@ -75,16 +78,16 @@ public:
 		double y;
 	} POINT2;
 
-	/*
+
 	struct Patatoide_Points
 	{
-		POINT2 points[PATATOIDES_NUM_POINTS];
-		POINT2 History_one_points[PATATOIDES_NUM_POINTS];
-		POINT2 History_two_points[PATATOIDES_NUM_POINTS];
-		POINT2 History_three_points[PATATOIDES_NUM_POINTS];
+		PointF points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		PointF history_one_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		PointF history_two_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
+		PointF history_three_points[PATATOIDE_NUM_OUTER_POINTS*PATATOIDE_NUM_INNER_POINTS];
 	};
-	*/
 
+	/*
 	struct Patatoide_Points
 	{
 		map<int, POINT2> points;
@@ -92,8 +95,9 @@ public:
 		map<int, POINT2> History_two_points;
 		map<int, POINT2> History_three_points;
 	};
+	*/
 
-	map<const char *, Patatoide_Points> Patatoides;
+	map<CBString, Patatoide_Points*> Patatoides;
 
 	map<string, bool> ClosedRunway;
 
@@ -226,7 +230,7 @@ public:
 		const char* remarks = fp.GetFlightPlanData().GetRemarks();
 		const char* pGate = strstr(remarks, " STAND/");
 		if (pGate != nullptr) {
-			auto pEnd = strpbrk(pGate, " \r\n\0");
+			auto pEnd = strpbrk(pGate+1, " \r\n\0");
 			char stand[16];
 			strncpy_s(stand, pGate + 7, pEnd - (pGate + 7));
 			return stand;
@@ -242,20 +246,25 @@ public:
 		CBString remarks = fp.GetFlightPlanData().GetRemarks();
 
 		int pos1 = remarks.find(" STAND/");
-		if (pos1 < remarks.length()) { // contains a stand already
-			int pos2 = remarks.find('\0', pos1+1);
-			assert(false);
+		if (pos1 != BSTR_ERR) { // contains a stand already
+			int pos2 = remarks.findchr(" \t\r\n\0", pos1+1);
+
+			if (pos2 == BSTR_ERR) { // we assume that we reached end of line and so none of the above characters were found (\0 is not part of the bstring)
+				pos2 = remarks.length();
+			}
 
 			if (stand == "") { // remove it
-				remarks.remove(pos1, pos2 - pos1 + 1);
+				remarks.remove(pos1, pos2 - pos1);
 			}
 			else { // update it
-				remarks.replace(pos1, pos2 - pos1 + 1, " STAND/" + stand);
+				remarks.replace(pos1, pos2 - pos1, " STAND/" + stand);
 			}
 		}
 
-		else { // no entry -> add it
-			remarks += " STAND/" + stand;
+		else { // no entry
+			if (stand != "") {
+				remarks += " STAND/" + stand;
+			}
 		}
 
 		fp.GetFlightPlanData().SetRemarks(remarks);

@@ -18,8 +18,7 @@ size_t HttpHelper::handle_data(void *ptr, size_t size, size_t nmemb, void *strea
 	char lastchar = *((char *)ptr + numbytes - 1);
 	*((char *)ptr + numbytes - 1) = '\0';
 	downloadedContents += ((char *)ptr);
-	downloadedContents += lastchar;
-	assert(false);
+	downloadedContents += lastchar;	
 	*((char *)ptr + numbytes - 1) = lastchar;  // Might not be necessary. 
 	return size*nmemb;
 }
