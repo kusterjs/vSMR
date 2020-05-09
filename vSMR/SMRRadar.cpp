@@ -79,7 +79,6 @@ CSMRRadar::CSMRRadar()
 	AirlinesPath += "\\ICAO\\ICAO_Airlines.txt";
 
 	ifstream f(AirlinesPath);
-
 	if (f.good()) {
 		Callsigns = new CCallsignLookup(AirlinesPath);
 	}
@@ -2525,7 +2524,8 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			fontSizeScaling = LabelsSettings[getEnumString(ColorTagType)]["first_line_font_factor"].GetDouble();
 			fontsize = round((float)fontSizeScaling * fontsize);
 		}
-		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel); ;
+		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel);
+		defer(delete(firstLineFont));
 
 		mesureRect = RectF(0, 0, 0, 0);
 		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
@@ -2699,7 +2699,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					TagBackgroundRect.top -= rimcas_height;
 
 					// Drawing the text
-					Gdiplus::StringFormat stformat = new Gdiplus::StringFormat();
+					StringFormat stformat = new Gdiplus::StringFormat();
 					stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
 					graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
 				}
@@ -2734,7 +2734,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					*/
 					RectF mRect(0, 0, 0, 0);
 					wstring welement = ToWString(tagItem.value);
-					Gdiplus::StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
+					StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
 
 					if (heightOffset == 0) { // first line
 						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,

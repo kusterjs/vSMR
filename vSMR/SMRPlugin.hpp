@@ -1,20 +1,22 @@
 #pragma once
 #include "EuroScopePlugIn.h"
+#include "Mmsystem.h"
+
+#include <chrono>
+#include <thread>
+#include <algorithm>
+#include "asio.hpp"
+
 #include "HttpHelper.hpp"
 #include "CPDLCSettingsDialog.hpp"
 #include "DataLinkDialog.hpp"
-#include <algorithm>
 #include "Constant.hpp"
-#include "Mmsystem.h"
-#include <chrono>
-#include <thread>
-
-#include "asio.hpp"
 #include "SMRRadar.hpp"
 #include "Logger.h"
 
+
 #define MY_PLUGIN_NAME      "vSMR"
-#define MY_PLUGIN_VERSION   "1.4.0-e32"
+#define MY_PLUGIN_VERSION   "1.4.4"
 #define MY_PLUGIN_DEVELOPER "Pierre Ferran, Even Rognlien, Lionel Bischof, Daniel Lange, Juha Holopainen, Keanu Czirjak"
 #define MY_PLUGIN_COPYRIGHT "GPL v3"
 #define MY_PLUGIN_VIEW_AVISO  "SMR radar display"
