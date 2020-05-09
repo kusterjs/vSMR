@@ -113,8 +113,8 @@ CSMRRadar::CSMRRadar()
 	// Setting up the data for the 2 approach windows
 	appWindowDisplays[1] = false;
 	appWindowDisplays[2] = false;
-	appWindows[1] = new CInsetWindow(APPWINDOW_ONE);
-	appWindows[2] = new CInsetWindow(APPWINDOW_TWO);
+	appWindows[1] = new CInsetWindow(SRW_APPWINDOW + 1);
+	appWindows[2] = new CInsetWindow(SRW_APPWINDOW + 2);
 
 	Logger::info("Loading profile");
 
@@ -464,8 +464,8 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 {
 	Logger::info(__FUNCSIG__);
 
-	if (ObjectType == APPWINDOW_ONE || ObjectType == APPWINDOW_TWO) {
-		int appWindowId = ObjectType - APPWINDOW_BASE;
+	if (ObjectType == SRW_APPWINDOW + 1 || ObjectType == SRW_APPWINDOW + 2) {
+		int appWindowId = ObjectType - SRW_APPWINDOW;
 
 		bool toggleCursor = appWindows[appWindowId]->OnMoveScreenObject(sObjectId, Pt, Area, Released);
 
@@ -579,52 +579,61 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 	Logger::info(__FUNCSIG__);
 	mouseLocation = Pt;
 
-	if (ObjectType == APPWINDOW_ONE || ObjectType == APPWINDOW_TWO) {
-		int appWindowId = ObjectType - APPWINDOW_BASE;
+	if (ObjectType == SRW_APPWINDOW + 1 || ObjectType == SRW_APPWINDOW + 2) {
+		int appWindowId = ObjectType - SRW_APPWINDOW;
 
 		if (strcmp(sObjectId, "close") == 0)
 			appWindowDisplays[appWindowId] = false;
 		if (strcmp(sObjectId, "range") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Zoom", 1);
-			GetPlugIn()->AddPopupListElement("55", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 55));
-			GetPlugIn()->AddPopupListElement("50", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 50));
-			GetPlugIn()->AddPopupListElement("45", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 45));
-			GetPlugIn()->AddPopupListElement("40", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 40));
-			GetPlugIn()->AddPopupListElement("35", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 35));
-			GetPlugIn()->AddPopupListElement("30", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 30));
-			GetPlugIn()->AddPopupListElement("25", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 25));
-			GetPlugIn()->AddPopupListElement("20", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 20));
-			GetPlugIn()->AddPopupListElement("15", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 15));
-			GetPlugIn()->AddPopupListElement("10", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 10));
-			GetPlugIn()->AddPopupListElement("5", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 5));
-			GetPlugIn()->AddPopupListElement("1", "", RIMCAS_UPDATERANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 1));
+			GetPlugIn()->AddPopupListElement("55", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 55));
+			GetPlugIn()->AddPopupListElement("50", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 50));
+			GetPlugIn()->AddPopupListElement("45", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 45));
+			GetPlugIn()->AddPopupListElement("40", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 40));
+			GetPlugIn()->AddPopupListElement("35", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 35));
+			GetPlugIn()->AddPopupListElement("30", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 30));
+			GetPlugIn()->AddPopupListElement("25", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 25));
+			GetPlugIn()->AddPopupListElement("20", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 20));
+			GetPlugIn()->AddPopupListElement("15", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 15));
+			GetPlugIn()->AddPopupListElement("10", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 10));
+			GetPlugIn()->AddPopupListElement("5", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 5));
+			GetPlugIn()->AddPopupListElement("1", "", SRW_UPDATE_RANGE + appWindowId, false, int(appWindows[appWindowId]->m_Scale == 1));
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 		if (strcmp(sObjectId, "filter") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Filter (ft)", 1);
-			GetPlugIn()->AddPopupListElement("UNL", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 66000));
-			GetPlugIn()->AddPopupListElement("9500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 9500));
-			GetPlugIn()->AddPopupListElement("8500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 8500));
-			GetPlugIn()->AddPopupListElement("7500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 7500));
-			GetPlugIn()->AddPopupListElement("6500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 6500));
-			GetPlugIn()->AddPopupListElement("5500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 5500));
-			GetPlugIn()->AddPopupListElement("4500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 4500));
-			GetPlugIn()->AddPopupListElement("3500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 3500));
-			GetPlugIn()->AddPopupListElement("2500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 2500));
-			GetPlugIn()->AddPopupListElement("1500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 1500));
-			GetPlugIn()->AddPopupListElement("500", "", RIMCAS_UPDATEFILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 500));
+			GetPlugIn()->AddPopupListElement("UNL", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 66000));
+			GetPlugIn()->AddPopupListElement("9500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 9500));
+			GetPlugIn()->AddPopupListElement("8500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 8500));
+			GetPlugIn()->AddPopupListElement("7500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 7500));
+			GetPlugIn()->AddPopupListElement("6500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 6500));
+			GetPlugIn()->AddPopupListElement("5500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 5500));
+			GetPlugIn()->AddPopupListElement("4500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 4500));
+			GetPlugIn()->AddPopupListElement("3500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 3500));
+			GetPlugIn()->AddPopupListElement("2500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 2500));
+			GetPlugIn()->AddPopupListElement("1500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 1500));
+			GetPlugIn()->AddPopupListElement("500", "", SRW_UPDATE_FILTER + appWindowId, false, int(appWindows[appWindowId]->m_Filter == 500));
 
 			CBString tmp = *bformat("%d", GetPlugIn()->GetTransitionAltitude());
-			GetPlugIn()->AddPopupListElement(tmp, "", RIMCAS_UPDATEFILTER + appWindowId, false, 2, false, true);
+			GetPlugIn()->AddPopupListElement(tmp, "", SRW_UPDATE_FILTER + appWindowId, false, 2, false, true);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 		if (strcmp(sObjectId, "rotate") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Rotate (deg)", 1);
 			for (int k = 0; k <= 360; k++) {
 				CBString tmp = *bformat("%d", k);
-				GetPlugIn()->AddPopupListElement(tmp, "", RIMCAS_UPDATEROTATE + appWindowId, false, int(appWindows[appWindowId]->m_Rotation == k));
+				GetPlugIn()->AddPopupListElement(tmp, "", SRW_UPDATE_ROTATE + appWindowId, false, int(appWindows[appWindowId]->m_Rotation == k));
 			}
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
+		}
+		if (strcmp(sObjectId, "centerline") == 0) {
+			GetPlugIn()->OpenPopupList(Area, "SRW Extended Centerline", 1);
+
+			CBString length = *bformat("Length: %d", appWindows[appWindowId]->m_ExtendedLinesLength);
+			CBString tickSpacing = *bformat("Tick spacing: %d", appWindows[appWindowId]->m_ExtendedLinesTickSpacing);
+			GetPlugIn()->AddPopupListElement(length, "", SRW_UPDATE_CENTERLINE + appWindowId);
+			GetPlugIn()->AddPopupListElement(tickSpacing, "", SRW_UPDATE_TICKSPACING + appWindowId);
+
 		}
 	}
 
@@ -663,8 +672,8 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Custom Cursor", "", RIMCAS_CUSTOM_CURSOR_TOGGLE, false, int(useCustomCursor));
 			GetPlugIn()->AddPopupListElement("QDR Fixed Reference", "", RIMCAS_QDM_TOGGLE);
 			GetPlugIn()->AddPopupListElement("QDR Select Reference", "", RIMCAS_QDM_SELECT_TOGGLE);
-			GetPlugIn()->AddPopupListElement("SRW 1", "", APPWINDOW_ONE, false, int(appWindowDisplays[1]));
-			GetPlugIn()->AddPopupListElement("SRW 2", "", APPWINDOW_TWO, false, int(appWindowDisplays[2]));
+			GetPlugIn()->AddPopupListElement("SRW 1", "", SRW_APPWINDOW + 1, false, int(appWindowDisplays[1]));
+			GetPlugIn()->AddPopupListElement("SRW 2", "", SRW_APPWINDOW + 2, false, int(appWindowDisplays[2]));
 			GetPlugIn()->AddPopupListElement("Profiles", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
@@ -973,11 +982,6 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		}
 	}
 
-	else if (FunctionId == APPWINDOW_ONE || FunctionId == APPWINDOW_TWO) {
-		int id = FunctionId - APPWINDOW_BASE;
-		appWindowDisplays[id] = !appWindowDisplays[id];
-	}
-
 	else if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
 		ActiveAirport = sItemString;
 		LoadProfile(CurrentConfig->getActiveProfile()["name"].GetString());
@@ -1028,23 +1032,6 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		SaveDataToAsr("ActiveProfile", "vSMR active profile", sItemString);
 
 		ShowLists["Profiles"] = true;
-	}
-
-	else if (FunctionId == RIMCAS_UPDATEFILTER1 || FunctionId == RIMCAS_UPDATEFILTER2) {
-		int id = FunctionId - RIMCAS_UPDATEFILTER;
-		if (StartsWith("UNL", sItemString))
-			sItemString = "66000";
-		appWindows[id]->m_Filter = atoi(sItemString);
-	}
-
-	else if (FunctionId == RIMCAS_UPDATERANGE1 || FunctionId == RIMCAS_UPDATERANGE2) {
-		int id = FunctionId - RIMCAS_UPDATERANGE;
-		appWindows[id]->m_Scale = atoi(sItemString);
-	}
-
-	else if (FunctionId == RIMCAS_UPDATEROTATE1 || FunctionId == RIMCAS_UPDATEROTATE2) {
-		int id = FunctionId - RIMCAS_UPDATEROTATE;
-		appWindows[id]->m_Rotation = strtof(sItemString, NULL);
 	}
 
 	else if (FunctionId == RIMCAS_UPDATE_BRIGHNESS) {
@@ -1155,6 +1142,61 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 
 		CorrelateCursor();
 	}
+		
+	
+	// App windows
+	for (int id = 1; id <= 2; id++) {
+
+		if (FunctionId == SRW_APPWINDOW + id) {
+			appWindowDisplays[id] = !appWindowDisplays[id];
+			break;
+		}
+
+		else if (FunctionId == SRW_UPDATE_FILTER + id) {		
+			if (StartsWith("UNL", sItemString))
+				sItemString = "66000";
+			appWindows[id]->m_Filter = atoi(sItemString);
+			break;
+		}
+
+		else if (FunctionId == SRW_UPDATE_RANGE + id) {
+			appWindows[id]->m_Scale = atoi(sItemString);
+			break;
+		}
+
+		else if (FunctionId == SRW_UPDATE_ROTATE + id) {
+			appWindows[id]->m_Rotation = atof(sItemString);
+			break;
+		}
+
+		else if (FunctionId == SRW_UPDATE_CENTERLINE + id) {
+			GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SRW_CENTERLINE_EDITOR+id, bstr2cstr(bformat("%d", appWindows[id]->m_ExtendedLinesLength), ' '));
+			onFunctionCallDoubleCallHack = true;
+			break;
+		}
+
+		else if (FunctionId == SRW_UPDATE_TICKSPACING + id) {
+			GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SRW_TICKSPACING_EDITOR + id, bstr2cstr(bformat("%d", appWindows[id]->m_ExtendedLinesTickSpacing), ' '));
+			onFunctionCallDoubleCallHack = true;
+			break;
+		}
+		else if (FunctionId == TAG_FUNC_SRW_CENTERLINE_EDITOR + id) {
+			if (onFunctionCallDoubleCallHack) {				
+				appWindows[id]->m_ExtendedLinesLength = atoi(sItemString);
+				onFunctionCallDoubleCallHack = false;
+			}
+			break;
+		}
+		else if (FunctionId == TAG_FUNC_SRW_TICKSPACING_EDITOR + id) {
+			if (onFunctionCallDoubleCallHack) {				
+				appWindows[id]->m_ExtendedLinesTickSpacing = atoi(sItemString);				
+				onFunctionCallDoubleCallHack = false;
+			}
+			break;
+		}
+
+	}
+
 }
 
 void CSMRRadar::OnRadarTargetPositionUpdate(CRadarTarget RadarTarget)
@@ -2400,7 +2442,7 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 			AddScreenObject(DRAWING_AC_SYMBOL, callsign, { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, AcisCorrelated ? GetBottomLine(rt.GetCallsign()) : rt.GetSystemID());
 		}
 		else {
-			AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (insetWindow->m_Id - APPWINDOW_BASE), rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, GetBottomLine(rt.GetCallsign()));
+			AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (insetWindow->m_Id - SRW_APPWINDOW), rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, GetBottomLine(rt.GetCallsign()));
 		}
 		dc->SelectObject(pqOrigPen);
 	}

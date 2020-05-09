@@ -131,7 +131,6 @@ POINT CInsetWindow::projectPoint(CPosition pos, CPosition ref)
 	double dist = ref.DistanceTo(pos);
 	double dir = TrueBearing(ref, pos);
 
-
 	out.x = refPt.x + int(m_Scale * dist * sin(dir) + 0.5);
 	out.y = refPt.y - int(m_Scale * dist * cos(dir) + 0.5);
 
@@ -144,6 +143,25 @@ POINT CInsetWindow::projectPoint(CPosition pos, CPosition ref)
 	}
 }
 
+RECT CInsetWindow::DrawToolbarButton(CDC * dc, const char* letter, CRect TopBar, int left, POINT mouseLocation)
+{
+	POINT TopLeft = { TopBar.right - left, TopBar.top + 2 };
+	POINT BottomRight = { TopBar.right - (left - 11), TopBar.bottom - 2 };
+	CRect Rect(TopLeft, BottomRight);
+	Rect.NormalizeRect();
+	CBrush ButtonBrush(RGB(60, 60, 60));
+	dc->FillRect(Rect, &ButtonBrush);
+	dc->SetTextColor(RGB(0, 0, 0));
+	dc->TextOutA(Rect.left + 2, Rect.top, letter);
+
+	if (mouseWithin(mouseLocation, Rect))
+		dc->Draw3dRect(Rect, RGB(45, 45, 45), RGB(75, 75, 75));
+	else
+		dc->Draw3dRect(Rect, RGB(75, 75, 75), RGB(45, 45, 45));
+
+	return Rect;
+}
+
 void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POINT mouseLocation, multimap<CBString, CBString> DistanceTools)
 {
 	CDC dc;
@@ -151,42 +169,6 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 	if (this->m_Id == -1)
 		return;
-
-	struct Utils
-	{
-		static const char* getEnumString(CSMRRadar::TagTypes type) {
-			if (type == CSMRRadar::TagTypes::Departure)
-				return "departure";
-			if (type == CSMRRadar::TagTypes::Arrival)
-				return "arrival";
-			if (type == CSMRRadar::TagTypes::Uncorrelated)
-				return "uncorrelated";
-			return "airborne";
-		}
-		static RECT GetAreaFromText(CDC * dc, const char* text, POINT Pos) {
-			RECT Area = { Pos.x, Pos.y, Pos.x + dc->GetTextExtent(text).cx, Pos.y + dc->GetTextExtent(text).cy };
-			return Area;
-		}
-
-		static RECT drawToolbarButton(CDC * dc, const char* letter, CRect TopBar, int left, POINT mouseLocation)
-		{
-			POINT TopLeft = { TopBar.right - left, TopBar.top + 2 };
-			POINT BottomRight = { TopBar.right - (left - 11), TopBar.bottom - 2 };
-			CRect Rect(TopLeft, BottomRight);
-			Rect.NormalizeRect();
-			CBrush ButtonBrush(RGB(60, 60, 60));
-			dc->FillRect(Rect, &ButtonBrush);
-			dc->SetTextColor(RGB(0, 0, 0));
-			dc->TextOutA(Rect.left + 2, Rect.top, letter);
-
-			if (mouseWithin(mouseLocation, Rect))
-				dc->Draw3dRect(Rect, RGB(45, 45, 45), RGB(75, 75, 75));
-			else
-				dc->Draw3dRect(Rect, RGB(75, 75, 75), RGB(45, 45, 45));
-
-			return Rect;
-		}
-	};
 
 	auto icao = radar_screen->ActiveAirport;
 	auto AptPositions = radar_screen->AirportPositions;
@@ -207,8 +189,7 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	refPt.y += m_Offset.y;
 
 	// Here we draw all runways for the airport
-	CSectorElement rwy;
-	for (rwy = radar_screen->GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
+	for (CSectorElement rwy = radar_screen->GetPlugIn()->SectorFileElementSelectFirst(SECTOR_ELEMENT_RUNWAY);
 		rwy.IsValid();
 		rwy = radar_screen->GetPlugIn()->SectorFileElementSelectNext(rwy, SECTOR_ELEMENT_RUNWAY))
 	{
@@ -265,22 +246,22 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 				// Drawing the ticks
 				int increment = m_ExtendedLinesTickSpacing * 1852;
+				if (increment > 0){
+					for (int j = increment; j <= int(m_ExtendedLinesLength * 1852.0); j += increment) {
 
-				for (int j = increment; j <= int(m_ExtendedLinesLength * 1852.0); j += increment) {
+						CPosition tickPosition = BetterHarversine(Threshold, reverseHeading, j);
+						CPosition tickBottom = BetterHarversine(tickPosition, fmod(reverseHeading - 90, 360), 500);
+						CPosition tickTop = BetterHarversine(tickPosition, fmod(reverseHeading + 90, 360), 500);
 
-					CPosition tickPosition = BetterHarversine(Threshold, reverseHeading, j);
-					CPosition tickBottom = BetterHarversine(tickPosition, fmod(reverseHeading - 90, 360), 500);
-					CPosition tickTop = BetterHarversine(tickPosition, fmod(reverseHeading + 90, 360), 500);
+						Pt1 = projectPoint(tickBottom, refPos);
+						Pt2 = projectPoint(tickTop, refPos);
 
-					Pt1 = projectPoint(tickBottom, refPos);
-					Pt2 = projectPoint(tickTop, refPos);
-
-					if (LiangBarsky(m_Area, Pt1, Pt2, toDraw1, toDraw2)) {
-						dc.SelectObject(&ExtendedCentreLinePen);
-						dc.MoveTo(toDraw1);
-						dc.LineTo(toDraw2);
+						if (LiangBarsky(m_Area, Pt1, Pt2, toDraw1, toDraw2)) {
+							dc.SelectObject(&ExtendedCentreLinePen);
+							dc.MoveTo(toDraw1);
+							dc.LineTo(toDraw2);
+						}
 					}
-
 				}
 			} 
 
@@ -289,9 +270,6 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	}
 
 	// Aircrafts
-	vector<POINT> appAreaVect = { windowAreaCRect.TopLeft(),{ windowAreaCRect.right, windowAreaCRect.top }, windowAreaCRect.BottomRight(),{ windowAreaCRect.left, windowAreaCRect.bottom } };
-	CPen WhitePen(PS_SOLID, 1, radar_screen->ColorManager->get_corrected_color("symbol", Color::White).ToCOLORREF());
-
 	radar_screen->DrawTargets(gdi, &dc, this);
 	radar_screen->DrawTags(gdi, this);
 	
@@ -761,20 +739,24 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 	radar_screen->AddScreenObject(m_Id, "topbar", TopBar, true, "");
 
-	bstring Toptext = bformat("SRW %d", m_Id - APPWINDOW_BASE);
+	bstring Toptext = bformat("SRW %d", m_Id - SRW_APPWINDOW);
 	dc.TextOutA(TopLeftText.x + (TopBar.right-TopBar.left) / 2 - dc.GetTextExtent("SRW 1").cx , TopLeftText.y, bstr2cstr(Toptext, ' '));
 
 	// Range button
-	CRect RangeRect = Utils::drawToolbarButton(&dc, "Z", TopBar, 29, mouseLocation);
+	CRect RangeRect = DrawToolbarButton(&dc, "Z", TopBar, 29, mouseLocation);
 	radar_screen->AddScreenObject(m_Id, "range", RangeRect, false, "");
 
 	// Filter button
-	CRect FilterRect = Utils::drawToolbarButton(&dc, "F", TopBar, 42, mouseLocation);
+	CRect FilterRect = DrawToolbarButton(&dc, "F", TopBar, 42, mouseLocation);
 	radar_screen->AddScreenObject(m_Id, "filter", FilterRect, false, "");
 
 	// Rotate button
-	CRect RotateRect = Utils::drawToolbarButton(&dc, "R", TopBar, 55, mouseLocation);
+	CRect RotateRect = DrawToolbarButton(&dc, "R", TopBar, 55, mouseLocation);
 	radar_screen->AddScreenObject(m_Id, "rotate", RotateRect, false, "");
+
+	// Extended centerline button
+	CRect CenterlineRect = DrawToolbarButton(&dc, "C", TopBar, 68, mouseLocation);
+	radar_screen->AddScreenObject(m_Id, "centerline", CenterlineRect, false, "");
 
 	dc.SetTextColor(oldTextColorC);
 

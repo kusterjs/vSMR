@@ -31,5 +31,7 @@ public:
 	virtual POINT projectPoint(CPosition pos, CPosition ref);
 	virtual void OnClickScreenObject(const char * sItemString, POINT Pt, int Button);
 	virtual bool OnMoveScreenObject(const char * sObjectId, POINT Pt, RECT Area, bool released);
+
+	RECT DrawToolbarButton(CDC * dc, const char* letter, CRect TopBar, int left, POINT mouseLocation);
 };
 
