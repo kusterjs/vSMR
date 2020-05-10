@@ -15,11 +15,11 @@ public:
 	virtual ~CInsetWindow();
 
 	// Definition
-	int m_Id = -1, m_Scale = 15, m_Filter = 5500, m_RadarRange = 50;
+	int m_Id = -1, m_AltFilter = 5500, m_RadarRange = 50;
 	RECT m_Area = { 200, 200, 600, 500 };
 	POINT m_Offset = { 0, 0 }, m_OffsetInit = { 0, 0 }, m_OffsetDrag = { 0, 0 };
 	bool m_Grip = false;
-	float m_Rotation = 0;
+	float m_Zoom = 20, m_Rotation = 0;
 	int m_ExtendedLinesLength = 15;
 	int m_ExtendedLinesTickSpacing = 1;
 

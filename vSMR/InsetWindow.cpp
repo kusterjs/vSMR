@@ -101,7 +101,7 @@ bool CInsetWindow::ShouldDrawInWindow(CSMRRadar* radar_screen, CRadarTarget* rt)
 	auto refPos = radar_screen->AirportPositions[radar_screen->ActiveAirport];
 
 	if (rt->GetGS() < 60 ||
-		rt->GetPosition().GetPressureAltitude() > m_Filter ||
+		rt->GetPosition().GetPressureAltitude() > m_AltFilter ||
 		rt->GetPosition().GetPressureAltitude() < radar_screen->CurrentConfig->getActiveProfile()["labels"]["airborne_altitude"].GetInt() ||
 		refPos.DistanceTo(rt->GetPosition().GetPosition()) > m_RadarRange) {
 		return false;
@@ -131,8 +131,8 @@ POINT CInsetWindow::projectPoint(CPosition pos, CPosition ref)
 	double dist = ref.DistanceTo(pos);
 	double dir = TrueBearing(ref, pos);
 
-	out.x = refPt.x + int(m_Scale * dist * sin(dir) + 0.5);
-	out.y = refPt.y - int(m_Scale * dist * cos(dir) + 0.5);
+	out.x = refPt.x + int(m_Zoom * dist * sin(dir) + 0.5);
+	out.y = refPt.y - int(m_Zoom * dist * cos(dir) + 0.5);
 
 	if (m_Rotation != 0)
 	{
@@ -181,8 +181,6 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	// We create the radar
 	dc.FillSolidRect(windowAreaCRect, qBackgroundColor);
 	radar_screen->AddScreenObject(m_Id, "window", m_Area, true, "");
-
-	auto scale = m_Scale;
 
 	POINT refPt = windowAreaCRect.CenterPoint();
 	refPt.x += m_Offset.x;
@@ -742,20 +740,16 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	bstring Toptext = bformat("SRW %d", m_Id - SRW_APPWINDOW);
 	dc.TextOutA(TopLeftText.x + (TopBar.right-TopBar.left) / 2 - dc.GetTextExtent("SRW 1").cx , TopLeftText.y, bstr2cstr(Toptext, ' '));
 
-	// Range button
-	CRect RangeRect = DrawToolbarButton(&dc, "Z", TopBar, 29, mouseLocation);
-	radar_screen->AddScreenObject(m_Id, "range", RangeRect, false, "");
+	// View button
+	CRect RangeRect = DrawToolbarButton(&dc, "V", TopBar, 29, mouseLocation);
+	radar_screen->AddScreenObject(m_Id, "view", RangeRect, false, "");
 
-	// Filter button
+	// Filters button
 	CRect FilterRect = DrawToolbarButton(&dc, "F", TopBar, 42, mouseLocation);
-	radar_screen->AddScreenObject(m_Id, "filter", FilterRect, false, "");
-
-	// Rotate button
-	CRect RotateRect = DrawToolbarButton(&dc, "R", TopBar, 55, mouseLocation);
-	radar_screen->AddScreenObject(m_Id, "rotate", RotateRect, false, "");
+	radar_screen->AddScreenObject(m_Id, "filters", FilterRect, false, "");
 
 	// Extended centerline button
-	CRect CenterlineRect = DrawToolbarButton(&dc, "C", TopBar, 68, mouseLocation);
+	CRect CenterlineRect = DrawToolbarButton(&dc, "C", TopBar, 55, mouseLocation);
 	radar_screen->AddScreenObject(m_Id, "centerline", CenterlineRect, false, "");
 
 	dc.SetTextColor(oldTextColorC);
