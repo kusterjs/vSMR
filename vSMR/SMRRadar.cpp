@@ -648,12 +648,23 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 
 	if (ObjectType == RIMCAS_MENU) {
 
-		if (strcmp(sObjectId, "DisplayMenu") == 0) {
+		if(strcmp(sObjectId, "GeneralMenu") == 0)
+		{
+			Area.top = Area.top + 30;
+			Area.bottom = Area.bottom + 30;
+
+			GetPlugIn()->OpenPopupList(Area, "General Menu", 1);
+			GetPlugIn()->AddPopupListElement("Pro mode", "", RIMCAS_PROMODE_TOGGLE, false, int(isProMode));
+			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
+		}
+
+		else if (strcmp(sObjectId, "DisplayMenu") == 0) {
 			Area.top = Area.top + 30;
 			Area.bottom = Area.bottom + 30;
 
 			GetPlugIn()->OpenPopupList(Area, "Display Menu", 1);
 			GetPlugIn()->AddPopupListElement("Custom Cursor", "", RIMCAS_CUSTOM_CURSOR_TOGGLE, false, int(useCustomCursor));
+			GetPlugIn()->AddPopupListElement("Tag Auto-Deconfliction", "", RIMCAS_AUTO_DECONFLICTION_TOGGLE, false, int(useAutoDeconfliction));
 			GetPlugIn()->AddPopupListElement("QDR Fixed Reference", "", RIMCAS_QDM_TOGGLE);
 			GetPlugIn()->AddPopupListElement("QDR Select Reference", "", RIMCAS_QDM_SELECT_TOGGLE);
 			GetPlugIn()->AddPopupListElement("SRW 1", "", SRW_APPWINDOW + 1, false, int(appWindowDisplays[1]));
@@ -662,7 +673,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 
-		if (strcmp(sObjectId, "TargetMenu") == 0) {
+		else if (strcmp(sObjectId, "TargetMenu") == 0) {
 			Area.top = Area.top + 30;
 			Area.bottom = Area.bottom + 30;
 
@@ -677,7 +688,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 
-		if (strcmp(sObjectId, "MapMenu") == 0) {
+		else if (strcmp(sObjectId, "MapMenu") == 0) {
 			Area.top = Area.top + 30;
 			Area.bottom = Area.bottom + 30;
 
@@ -687,7 +698,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 
-		if (strcmp(sObjectId, "ColourMenu") == 0) {
+		else if (strcmp(sObjectId, "ColourMenu") == 0) {
 			Area.top = Area.top + 30;
 			Area.bottom = Area.bottom + 30;
 
@@ -697,7 +708,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		}
 
-		if (strcmp(sObjectId, "RIMCASMenu") == 0) {
+		else if (strcmp(sObjectId, "RIMCASMenu") == 0) {
 			Area.top = Area.top + 30;
 			Area.bottom = Area.bottom + 30;
 
@@ -984,6 +995,14 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			LoadCustomFont();
 			onFunctionCallDoubleCallHack = false;
 		}
+	}
+
+	else if (FunctionId == RIMCAS_PROMODE_TOGGLE) {
+		isProMode = !isProMode;
+	}
+
+	else if (FunctionId == RIMCAS_AUTO_DECONFLICTION_TOGGLE) {
+		useAutoDeconfliction = !useAutoDeconfliction;
 	}
 
 	else if (FunctionId == RIMCAS_CUSTOM_CURSOR_TOGGLE) {
@@ -1850,6 +1869,13 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	// --------------
 	DrawTags(&graphics, nullptr);
 
+	// --------------
+	// Tag deconfliction
+	// --------------
+	if (useAutoDeconfliction) {
+		TagDeconflict();
+	}
+
 	TimePopupData.clear();
 	RimcasInstance->AcOnRunway.clear();
 	ColorAC.clear();
@@ -2155,24 +2181,28 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	int offset = 2;
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, (const char*)ActiveAirport);
 	AddScreenObject(RIMCAS_ACTIVE_AIRPORT, "ActiveAirport", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent((const char*)ActiveAirport).cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent((const char*)ActiveAirport).cy }, false, "Active Airport");
-
 	offset += dc.GetTextExtent((const char*)ActiveAirport).cx + 10;
+
+	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "General");
+	AddScreenObject(RIMCAS_MENU, "GeneralMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("General").cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent("General").cy }, false, "General menu");
+	offset += dc.GetTextExtent("General").cx + 10;
+
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "Display");
 	AddScreenObject(RIMCAS_MENU, "DisplayMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("Display").cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent("Display").cy }, false, "Display menu");
-
-	offset += dc.GetTextExtent("Display").cx + 10;
+	offset += dc.GetTextExtent("Display").cx + 10;	
+	
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "Target");
 	AddScreenObject(RIMCAS_MENU, "TargetMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("Target").cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent("Target").cy }, false, "Target menu");
-
 	offset += dc.GetTextExtent("Target").cx + 10;
+
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "Colours");
 	AddScreenObject(RIMCAS_MENU, "ColourMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("Colour").cx, ToolBarAreaTop.top + 4 + dc.GetTextExtent("Colour").cy }, false, "Colour menu");
-
 	offset += dc.GetTextExtent("Colours").cx + 10;
+
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "Alerts");
 	AddScreenObject(RIMCAS_MENU, "RIMCASMenu", { ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("Alerts").cx, ToolBarAreaTop.top + 4 + +dc.GetTextExtent("Alerts").cy }, false, "RIMCAS menu");
-
 	offset += dc.GetTextExtent("Alerts").cx + 10;
+
 	dc.TextOutA(ToolBarAreaTop.left + offset, ToolBarAreaTop.top + 4, "/");
 	CRect barDistanceRect = { ToolBarAreaTop.left + offset - 2, ToolBarAreaTop.top + 4, ToolBarAreaTop.left + offset + dc.GetTextExtent("/").cx, ToolBarAreaTop.top + 4 + +dc.GetTextExtent("/").cy };
 	if (DistanceToolActive) {
@@ -2181,108 +2211,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	AddScreenObject(RIMCAS_MENU, "/", barDistanceRect, false, "Distance tool");
 
 	dc.SetTextColor(oldTextColor);
-
-	//
-	// Tag deconflicting
-	//
-
-	Logger::info("Tag deconfliction loop");
-
-	for (const auto areas : tagAreas) {
-		if (!useAutoDeconfliction)
-			break;
-
-		if (TagsOffsets.find(areas.first) != TagsOffsets.end())
-			continue;
-
-		if (IsTagBeingDragged(areas.first))
-			continue;
-
-		if (RecentlyAutoMovedTags.find(areas.first) != RecentlyAutoMovedTags.end()) {
-			double t = (double)clock() - RecentlyAutoMovedTags[areas.first] / ((double)CLOCKS_PER_SEC);
-			if (t >= 0.8) {
-				RecentlyAutoMovedTags.erase(areas.first);
-			}
-			else {
-				continue;
-			}
-		}
-
-		// We need to see wether the rotation will be clockwise or anti-clockwise
-
-		bool isAntiClockwise = false;
-
-		for (const auto area2 : tagAreas) {
-			if (areas.first == area2.first)
-				continue;
-
-			if (IsTagBeingDragged(area2.first))
-				continue;
-
-			CRect h;
-
-			if (h.IntersectRect(tagAreas[areas.first], area2.second)) {
-				if (areas.second.left <= area2.second.left) {
-					isAntiClockwise = true;
-				}
-
-				break;
-			}
-		}
-
-		// We then rotate the tags until we did a 360 or there is no more conflicts
-
-		POINT acPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(areas.first).GetPosition().GetPosition());
-		int length = LeaderLineDefaultlength;
-		if (TagLeaderLineLength.find(areas.first) != TagLeaderLineLength.end())
-			length = TagLeaderLineLength[areas.first];
-
-		int width = areas.second.Width();
-		int height = areas.second.Height();
-
-		for (double rotated = 0.0; abs(rotated) <= 360.0;) {
-			// We first rotate the tag
-			double newangle = fmod(TagAngles[areas.first] + rotated, 360.0f);
-
-			POINT TagCenter;
-			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(newangle))));
-			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(newangle))));
-
-			CRect NewRectangle(TagCenter.x - (width / 2), TagCenter.y - (height / 2), TagCenter.x + (width / 2), TagCenter.y + (height / 2));
-			NewRectangle.NormalizeRect();
-
-			// Assume there is no conflict, then try again
-
-			bool isTagConflicing = false;
-
-			for (const auto area2 : tagAreas) {
-				if (areas.first == area2.first)
-					continue;
-
-				if (IsTagBeingDragged(area2.first))
-					continue;
-
-				CRect h;
-
-				if (h.IntersectRect(NewRectangle, area2.second)) {
-					isTagConflicing = true;
-					break;
-				}
-			}
-
-			if (!isTagConflicing) {
-				TagAngles[areas.first] = fmod(TagAngles[areas.first] + rotated, 360);
-				tagAreas[areas.first] = NewRectangle;
-				RecentlyAutoMovedTags[areas.first] = clock();
-				break;
-			}
-
-			if (isAntiClockwise)
-				rotated -= 22.5f;
-			else
-				rotated += 22.5f;
-		}
-	}
+	
 
 	//
 	// App windows
@@ -2901,6 +2830,105 @@ void CSMRRadar::DrawDistanceTools(Graphics* graphics, CDC* dc, CInsetWindow* ins
 		dc->SelectObject(oldPen);
 	}
 
+}
+
+void CSMRRadar::TagDeconflict() {
+
+	Logger::info("Tag deconfliction loop");
+
+	for (const auto areas : tagAreas) {		
+
+		if (TagsOffsets.find(areas.first) != TagsOffsets.end())
+			continue;
+
+		if (IsTagBeingDragged(areas.first))
+			continue;
+
+		if (RecentlyAutoMovedTags.find(areas.first) != RecentlyAutoMovedTags.end()) {
+			double t = (double)clock() - RecentlyAutoMovedTags[areas.first] / ((double)CLOCKS_PER_SEC);
+			if (t >= 0.8) {
+				RecentlyAutoMovedTags.erase(areas.first);
+			}
+			else {
+				continue;
+			}
+		}
+
+		// We need to see wether the rotation will be clockwise or anti-clockwise
+
+		bool isAntiClockwise = false;
+
+		for (const auto area2 : tagAreas) {
+			if (areas.first == area2.first)
+				continue;
+
+			if (IsTagBeingDragged(area2.first))
+				continue;
+
+			CRect h;
+
+			if (h.IntersectRect(tagAreas[areas.first], area2.second)) {
+				if (areas.second.left <= area2.second.left) {
+					isAntiClockwise = true;
+				}
+
+				break;
+			}
+		}
+
+		// We then rotate the tags until we did a 360 or there is no more conflicts
+
+		POINT acPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(areas.first).GetPosition().GetPosition());
+		int length = LeaderLineDefaultlength;
+		if (TagLeaderLineLength.find(areas.first) != TagLeaderLineLength.end())
+			length = TagLeaderLineLength[areas.first];
+
+		int width = areas.second.Width();
+		int height = areas.second.Height();
+
+		for (double rotated = 0.0; abs(rotated) <= 360.0;) {
+			// We first rotate the tag
+			double newangle = fmod(TagAngles[areas.first] + rotated, 360.0f);
+
+			POINT TagCenter;
+			TagCenter.x = long(acPosPix.x + float(length * cos(DegToRad(newangle))));
+			TagCenter.y = long(acPosPix.y + float(length * sin(DegToRad(newangle))));
+
+			CRect NewRectangle(TagCenter.x - (width / 2), TagCenter.y - (height / 2), TagCenter.x + (width / 2), TagCenter.y + (height / 2));
+			NewRectangle.NormalizeRect();
+
+			// Assume there is no conflict, then try again
+
+			bool isTagConflicing = false;
+
+			for (const auto area2 : tagAreas) {
+				if (areas.first == area2.first)
+					continue;
+
+				if (IsTagBeingDragged(area2.first))
+					continue;
+
+				CRect h;
+
+				if (h.IntersectRect(NewRectangle, area2.second)) {
+					isTagConflicing = true;
+					break;
+				}
+			}
+
+			if (!isTagConflicing) {
+				TagAngles[areas.first] = fmod(TagAngles[areas.first] + rotated, 360);
+				tagAreas[areas.first] = NewRectangle;
+				RecentlyAutoMovedTags[areas.first] = clock();
+				break;
+			}
+
+			if (isAntiClockwise)
+				rotated -= 22.5f;
+			else
+				rotated += 22.5f;
+		}
+	}
 }
 
 // ReSharper restore CppMsExtAddressOfClassRValue

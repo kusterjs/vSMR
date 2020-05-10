@@ -338,6 +338,7 @@ public:
 	void DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow);
 	void DrawTags(Graphics* graphics, CInsetWindow* insetWindow);
 	void DrawDistanceTools(Graphics* graphics, CDC* dc, CInsetWindow* insetWindow);
+	void TagDeconflict();
 
 	virtual void OnAsrContentLoaded(bool Loaded);
 	virtual void OnAsrContentToBeSaved();
