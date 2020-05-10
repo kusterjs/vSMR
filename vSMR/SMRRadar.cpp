@@ -1114,12 +1114,12 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	}
 
 	else if (FunctionId == RIMCAS_BRIGHTNESS_LABEL) {
-		ColorManager->update_brightness("label", std::atoi(sItemString));
+		ColorManager->update_brightness("label", atoi(sItemString));
 		ShowLists["Label"] = true;
 	}
 
 	else if (FunctionId == RIMCAS_BRIGHTNESS_AFTERGLOW) {
-		ColorManager->update_brightness("afterglow", std::atoi(sItemString));
+		ColorManager->update_brightness("afterglow", atoi(sItemString));
 		ShowLists["Afterglow"] = true;
 	}
 
@@ -1478,7 +1478,7 @@ map<CBString, CSMRRadar::TagItem> CSMRRadar::GenerateTagData(CRadarTarget rt, CF
 	}
 
 	// ----- Comms (voice/receive/text)
-	CBString commType = "";
+	CBString commType = "  ";
 	if (fp.IsValid()) {
 
 		char ctrlerComType = fp.GetControllerAssignedData().GetCommunicationType();
@@ -2472,18 +2472,21 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 		map<CBString, TagItem> TagMap = GenerateTagData(rt, fp, this, ActiveAirport);
 
+		StringFormat* stformat = new Gdiplus::StringFormat();
+		stformat->SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
+
 		// Get the TAG label settings
 		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
 
 		// First we need to figure out the tag size
 		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
 		RectF mesureRect;
-		graphics->MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		graphics->MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), stformat, &mesureRect);
 		auto blankWidth = mesureRect.GetRight();
 
 		// default font size
 		mesureRect = RectF(0, 0, 0, 0);
-		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), customFont, PointF(0, 0), stformat, &mesureRect);
 		auto oneLineHeight = mesureRect.GetBottom();
 
 		// bigger font size if used for 1st TAG line		
@@ -2500,8 +2503,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		defer(delete(firstLineFont));
 
 		mesureRect = RectF(0, 0, 0, 0);
-		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"),
-			firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), firstLineFont, PointF(0, 0), stformat, &mesureRect);
 		auto firstLineHeight = mesureRect.GetBottom();
 
 		// get label lines definitions
@@ -2529,7 +2531,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 				TagHeight += oneLineHeight;
 			}
 
-			Gdiplus::REAL TempTagWidth = 0;
+			Gdiplus::REAL lineWidth = 0;
 
 			for (unsigned int j = 0; j < line.Size(); j++) {
 				mesureRect = RectF(0, 0, 0, 0);
@@ -2540,20 +2542,25 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 				lineTagItemArray.push_back(TagMap[tagKey]);
 
+				if (tagKey == "comms") { // Pretty hacky...
+					lineWidth -= blankWidth; // We don't want a space between the callsign and the comm type if it's there
+				}
+
 				wstring wstr = ToWString(TagMap[tagKey].value);
 				if (i == 0) {
-					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect); // special case for first line
+					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), stformat, &mesureRect); // special case for first line
 				}
 				else {
-					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &mesureRect);
+					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), stformat, &mesureRect);
 				}
-				TempTagWidth += mesureRect.GetRight();
+				lineWidth += mesureRect.GetRight();
 
-				if (j != line.Size() - 1)
-					TempTagWidth += blankWidth;
+				if (j != line.Size() - 1) {
+					//lineWidth += blankWidth;
+				}
 			}
 
-			TagWidth = max(TagWidth, TempTagWidth);
+			TagWidth = max(TagWidth, lineWidth);
 
 			ReplacedLabelLines.push_back(lineTagItemArray);
 		}
@@ -2662,7 +2669,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					wstring rimcasw = L"ALERT";
 					RectF RectRimcas_height;
 
-					graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), &Gdiplus::StringFormat(), &RectRimcas_height);
+					graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), stformat, &RectRimcas_height);
 					rimcas_height = int(RectRimcas_height.GetBottom());
 
 					// Drawing the rectangle
@@ -2671,9 +2678,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					TagBackgroundRect.top -= rimcas_height;
 
 					// Drawing the text
-					StringFormat stformat = new Gdiplus::StringFormat();
-					stformat.SetAlignment(StringAlignment::StringAlignmentCenter);
-					graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), &stformat, &RimcasTextColor);
+					graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), stformat, &RimcasTextColor);
 				}
 			}
 
@@ -2687,6 +2692,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			// Draw tag text and clickable zones
 			Gdiplus::REAL heightOffset = 0;
 			for (auto&& line : ReplacedLabelLines) {
+
 				Gdiplus::REAL widthOffset = 0;
 				for (auto&& tagItem : line) {
 					SolidBrush* color = &FontColor;
@@ -2705,24 +2711,27 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					color = &GroundDepaColor;
 					*/
 					RectF mRect(0, 0, 0, 0);
-					wstring welement = ToWString(tagItem.value);
-					StringFormat stformat = new Gdiplus::StringFormat(StringFormatFlagsMeasureTrailingSpaces);
+					wstring welement = ToWString(tagItem.value);				
+
+					if (tagItem.function == TAG_CITEM_COMMTYPE) { // Pretty hacky...
+						widthOffset -= blankWidth; // We don't want a space between the callsign and the comm type if it's there
+					}
 
 					if (heightOffset == 0) { // first line
 						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-							&stformat, color);
+							stformat, color);
 
 						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
-							PointF(0, 0), &stformat, &mRect);
+							PointF(0, 0), stformat, &mRect);
 					}
 					else {
 						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), customFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
-							&stformat, color);
+							stformat, color);
 
 						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), customFont,
-							PointF(0, 0), &stformat, &mRect);
+							PointF(0, 0), stformat, &mRect);
 					}
 
 					CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
@@ -2731,7 +2740,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
 
 					widthOffset += mRect.GetRight();
-					widthOffset += blankWidth;
+					//widthOffset += blankWidth;
 				}
 
 				if (heightOffset == 0) {
