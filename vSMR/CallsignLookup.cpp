@@ -45,7 +45,7 @@ CCallsignLookup::CCallsignLookup(CBString fileName) {
 	myfile.close();
 }
 
-CBString CCallsignLookup::getCallsign(CBString airlineCode) {
+CBString CCallsignLookup::GetFullCallsign(CBString airlineCode) {
 
 	if (callsigns.find(airlineCode) == callsigns.end())
 		return "";

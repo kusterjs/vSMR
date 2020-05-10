@@ -15,7 +15,7 @@ private:
 public:
 
 	CCallsignLookup(CBString fileName);
-	CBString getCallsign(CBString airlineCode);
+	CBString GetFullCallsign(CBString airlineCode);
 
 	~CCallsignLookup();
 };

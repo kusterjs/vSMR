@@ -1377,53 +1377,38 @@ CBString CSMRRadar::GetBottomLine(const char * Callsign)
 
 	CFlightPlan fp = GetPlugIn()->FlightPlanSelect(Callsign);
 	CBString to_render = "";
+
 	if (fp.IsValid()) {
-		to_render += fp.GetCallsign();
 
-		CBString callsign_code = fp.GetCallsign();
-		callsign_code.trunc(3);
-		to_render += " (" + Callsigns->getCallsign(callsign_code) + ")";
+		CBString icao_callsign = *bformat("%.*s", 3, Callsign);		
+		CBString full_callsign = Callsigns->GetFullCallsign(icao_callsign);
 
-		to_render += " (";
-		to_render += fp.GetPilotName();
-		to_render += "): ";
-		to_render += fp.GetFlightPlanData().GetAircraftFPType();
-		to_render += " ";
+		to_render.format("%s (%s) (%s): %s ", Callsign, full_callsign.data, fp.GetPilotName(), fp.GetFlightPlanData().GetAircraftFPType());
 
 		if (fp.GetFlightPlanData().IsReceived()) {
 			const char* assr = fp.GetControllerAssignedData().GetSquawk();
 			const char* ssr = GetPlugIn()->RadarTargetSelect(fp.GetCallsign()).GetPosition().GetSquawk();
-			if (strlen(assr) != 0 && !StartsWith(ssr, assr)) {
-				to_render += assr;
-				to_render += ":";
-				to_render += ssr;
+			const char* fpType = fp.GetFlightPlanData().GetPlanType();
+
+			if (strlen(assr) != 0 && !StartsWith(ssr, assr)) {		
+				to_render += *bformat("%s:%s (%s)", fpType, ssr, assr);
 			}
 			else {
-				to_render += "I:";
-				to_render += ssr;
+				to_render += *bformat("%s:%s", fpType, ssr);
 			}
 
-			to_render += " ";
-			to_render += fp.GetFlightPlanData().GetOrigin();
-			to_render += "==>";
-			to_render += fp.GetFlightPlanData().GetDestination();
-			to_render += " (";
-			to_render += fp.GetFlightPlanData().GetAlternate();
-			to_render += ")";
+			to_render += *bformat(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
 
-			to_render += " at ";
 			int rfl = fp.GetControllerAssignedData().GetFinalAltitude();
-			CBString rfl_s;
 			if (rfl == 0)
 				rfl = fp.GetFlightPlanData().GetFinalAltitude();
-			if (rfl > GetPlugIn()->GetTransitionAltitude())
-				rfl_s.format("FL%d", rfl / 100);
-			else
-				rfl_s.format("%dft", rfl);
 
-			to_render += rfl_s;
-			to_render += " Route: ";
-			to_render += fp.GetFlightPlanData().GetRoute();
+			if (rfl > GetPlugIn()->GetTransitionAltitude())
+				to_render += *bformat("FL%d", rfl / 100);				
+			else
+				to_render += *bformat("%dft", rfl);				
+
+			to_render += *bformat(" Route: %s", fp.GetFlightPlanData().GetRoute());		
 		}
 	}
 
@@ -2866,7 +2851,6 @@ void CSMRRadar::TagDeconflict() {
 				continue;
 
 			CRect h;
-
 			if (h.IntersectRect(tagAreas[areas.first], area2.second)) {
 				if (areas.second.left <= area2.second.left) {
 					isAntiClockwise = true;
