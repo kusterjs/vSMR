@@ -1,6 +1,10 @@
 #include "stdafx.h"
+#include <d2d1.h>
 #include "Resource.h"
 #include "SMRRadar.hpp"
+
+#pragma comment(lib, "d2d1.lib")
+
 
 ULONG_PTR m_gdiplusToken;
 CPoint mouseLocation(0, 0);
@@ -1726,6 +1730,62 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 {
+	/* 
+	if (Phase != REFRESH_PHASE_BEFORE_TAGS)
+		return;
+
+	Logger::info("Direct2D init");
+	ID2D1Factory* pD2DFactory = NULL;
+	HRESULT hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, &pD2DFactory);
+
+	// Obtain the size of the drawing area.
+	//CRect FullScreenArea(GetRadarArea());
+	RECT rc(GetRadarArea());
+	//GetClientRect(WindowFromDC(hDC), &rc);
+	
+
+	// Create a Direct2D render target          
+	ID2D1DCRenderTarget* pDCRT = NULL;
+	D2D1_RENDER_TARGET_PROPERTIES props = D2D1::RenderTargetProperties(
+		D2D1_RENDER_TARGET_TYPE_DEFAULT,
+		D2D1::PixelFormat(
+			DXGI_FORMAT_B8G8R8A8_UNORM,
+			D2D1_ALPHA_MODE_PREMULTIPLIED),
+		0,
+		0,
+		D2D1_RENDER_TARGET_USAGE_NONE,
+		D2D1_FEATURE_LEVEL_DEFAULT
+	);
+	defer(SafeRelease(&pDCRT));
+
+	hr = pD2DFactory->CreateDCRenderTarget(&props, &pDCRT);
+
+	if (SUCCEEDED(hr)) {
+		Logger::info("Direct2D successfully set up");
+		hr = pDCRT->BindDC(hDC, &rc); // Bind to the DC
+
+		pDCRT->BeginDraw();
+		pDCRT->SetTransform(D2D1::Matrix3x2F::Identity());
+		pDCRT->Clear(D2D1::ColorF(D2D1::ColorF::White));
+
+		ID2D1SolidColorBrush* pBlackBrush = NULL;
+		pDCRT->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black), &pBlackBrush);
+
+		pDCRT->DrawEllipse(
+			D2D1::Ellipse(
+				D2D1::Point2F(150.0f, 150.0f),
+				100.0f,
+				100.0f),
+			pBlackBrush,
+			3.0
+		);
+		hr = pDCRT->EndDraw();
+
+		SafeRelease(&pBlackBrush);
+	}
+	return;
+	*/
+
 	Logger::info(__FUNCSIG__);
 	// Changing the mouse cursor
 	if (initCursor) {
@@ -1749,6 +1809,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			Gdiplus::Graphics graphics(hDC);
 			graphics.SetPageUnit(Gdiplus::UnitPixel);
 			graphics.SetSmoothingMode(SmoothingModeAntiAlias);
+			// https://docs.microsoft.com/en-us/windows/win32/direct2d/direct2d-and-gdi-interoperation-overview
 
 			SolidBrush AlphaBrush(Color(CurrentConfig->getActiveProfile()["filters"]["night_alpha_setting"].GetInt(), 0, 0, 0));
 
@@ -1795,7 +1856,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 	// Creating the gdi+ graphics
 	Gdiplus::Graphics graphics(hDC);
-	graphics.SetPageUnit(Gdiplus::UnitPixel);
+	graphics.SetPageUnit(UnitPixel);
 	graphics.SetSmoothingMode(SmoothingModeAntiAlias);
 
 	AirportPositions.clear();
@@ -1819,8 +1880,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	for (auto runway : RimcasInstance->Runways) {
 		if (runway.closed) { // if runway is closed
 
-			CPen RedPen(PS_SOLID, 2, RGB(150, 0, 0));
-			CPen * oldPen = dc.SelectObject(&RedPen);
+			//CPen RedPen(PS_SOLID, 2, RGB(150, 0, 0));
+			//CPen * oldPen = dc.SelectObject(&RedPen);
 
 			PointF lpPoints[128];
 			int w = 0;
@@ -1833,7 +1894,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 
 			graphics.FillPolygon(&SolidBrush(Color(150, 0, 0)), lpPoints, w);
 
-			dc.SelectObject(oldPen);
+			//dc.SelectObject(oldPen);
 		}
 	}
 
@@ -1922,6 +1983,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			// Draw an arc segment
 			CPen arcPen(PS_SOLID, 2, aircraft.colors.second);
 			CBrush arcBrush(aircraft.colors.first);
+			defer(DeleteObject(arcPen));
+			defer(DeleteObject(arcBrush));
 
 			dc.SelectObject(arcPen);
 			dc.SelectObject(arcBrush);
@@ -2474,6 +2537,8 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 		StringFormat* stformat = new Gdiplus::StringFormat();
 		stformat->SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
+		assert(false);
+		// Look at this https://stackoverflow.com/questions/1203087/why-is-graphics-measurestring-returning-a-higher-than-expected-number
 
 		// Get the TAG label settings
 		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
