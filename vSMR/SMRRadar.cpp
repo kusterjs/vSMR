@@ -1,10 +1,9 @@
 #include "stdafx.h"
-#include <d2d1.h>
+//#include <d2d1.h>
 #include "Resource.h"
 #include "SMRRadar.hpp"
 
-#pragma comment(lib, "d2d1.lib")
-
+//#pragma comment(lib, "d2d1.lib")
 
 ULONG_PTR m_gdiplusToken;
 CPoint mouseLocation(0, 0);
@@ -2557,8 +2556,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		// Get the TAG label settings
 		const Value& LabelsSettings = CurrentConfig->getActiveProfile()["labels"];
 
-		// First we need to figure out the tag size
-		Gdiplus::REAL TagWidth = 0, TagHeight = 0;
+		// First we need to figure out the tag size		
 		RectF mesureRect;
 		graphics->MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), stformat, &mesureRect);
 		auto blankWidth = mesureRect.GetRight();
@@ -2596,7 +2594,14 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 		if (!LabelLines.IsArray())
 			return;
+		
 
+		REAL TagWidth = 0, TagHeight = 0;
+		REAL TAG_PADDING_LEFT = (REAL)currentFontSize / 4.0;
+		REAL TAG_PADDING_RIGHT = TAG_PADDING_LEFT;
+		REAL TAG_PADDING_TOP = TAG_PADDING_LEFT*0.5;
+		REAL TAG_PADDING_BOTTOM = TAG_PADDING_LEFT*0.5;
+		
 		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
 
 			const Value& line = LabelLines[i];
@@ -2604,14 +2609,14 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 			// Adds one line height
 			if (i == 0) {
+				TagHeight += TAG_PADDING_TOP;
 				TagHeight += firstLineHeight; // special case 1st line
 			}
 			else {
 				TagHeight += oneLineHeight;
 			}
 
-			Gdiplus::REAL lineWidth = 0;
-
+			Gdiplus::REAL lineWidth = TAG_PADDING_LEFT;
 			for (unsigned int j = 0; j < line.Size(); j++) {
 				mesureRect = RectF(0, 0, 0, 0);
 				CBString tagKey = line[j].GetString();
@@ -2635,11 +2640,12 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					//lineWidth += blankWidth;
 				}
 			}
-
+			lineWidth += TAG_PADDING_RIGHT;
 			TagWidth = max(TagWidth, lineWidth);
 
 			ReplacedLabelLines.push_back(lineTagItemArray);
 		}
+		TagHeight += TAG_PADDING_BOTTOM;
 
 		Color definedBackgroundColor = CurrentConfig->getConfigColor(LabelsSettings[getEnumString(ColorTagType)]["background_color"]);
 		if (ColorTagType == TagTypes::Departure) {
@@ -2768,10 +2774,10 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			TagBackgroundRect = oldCrectSave;
 
 			// Draw tag text and clickable zones
-			Gdiplus::REAL heightOffset = 0;
+			Gdiplus::REAL heightOffset = TAG_PADDING_TOP;
 			for (auto&& line : ReplacedLabelLines) {
 
-				Gdiplus::REAL widthOffset = 0;
+				Gdiplus::REAL widthOffset = TAG_PADDING_LEFT;
 				for (auto&& tagItem : line) {
 					SolidBrush* color = &FontColor;
 					if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
@@ -2795,7 +2801,9 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 						widthOffset -= blankWidth; // We don't want a space between the callsign and the comm type if it's there
 					}
 
-					if (heightOffset == 0) { // first line
+					if (heightOffset == TAG_PADDING_TOP) { // first line
+						heightOffset;
+
 						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
 							stformat, color);
@@ -2817,17 +2825,18 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
 
-					widthOffset += mRect.GetRight();
-					//widthOffset += blankWidth;
+					widthOffset += mRect.GetRight();					
 				}
 
-				if (heightOffset == 0) {
+				if (heightOffset == TAG_PADDING_TOP) {
 					heightOffset += firstLineHeight;
 				}
 				else {
 					heightOffset += oneLineHeight;
 				}
+				widthOffset += TAG_PADDING_RIGHT;
 			}
+			heightOffset += TAG_PADDING_BOTTOM;
 		}
 	}
 }
