@@ -71,16 +71,15 @@ vector<CSMRRadar*> RadarScreensOpened;
 
 void datalinkLogin(void * arg)
 {
-	CBString raw;
 	CBString url = baseUrlDatalink;
 	url += "?logon=";
 	url += logonCode;
 	url += "&from=";
 	url += logonCallsign;
 	url += "&to=SERVER&type=PING";
-	raw = httpHelper->downloadStringFromURL(url);
+	CBString response = httpHelper->downloadStringFromURL(url);
 
-	if (StartsWith("ok", raw)) {
+	if (StartsWith("ok", response)) {
 		HoppieConnected = true;
 		ConnectionMessage = true;
 	}
@@ -88,8 +87,6 @@ void datalinkLogin(void * arg)
 
 void sendDatalinkMessage(void * arg)
 {
-
-	CBString raw;
 	CBString url = baseUrlDatalink;
 	url += "?logon=";
 	url += logonCode;
@@ -102,15 +99,10 @@ void sendDatalinkMessage(void * arg)
 	url += "&packet=";
 	url += tmessage;
 
-	size_t start_pos = 0;
-	while ((start_pos = url.find(' ', start_pos)) != BSTR_ERR) {
-		url.replace(start_pos, string(" ").length(), "%20");
-		start_pos += string("%20").length();
-	}
+	url.findreplace(" ", "%20");
+	CBString response = httpHelper->downloadStringFromURL(url);
 
-	raw = httpHelper->downloadStringFromURL(url);
-
-	if (StartsWith("ok", raw)) {
+	if (StartsWith("ok", response)) {
 		if (PendingMessages.find(DatalinkToSend.callsign) != PendingMessages.end())
 			PendingMessages.erase(DatalinkToSend.callsign);
 		if (std::find(AircraftMessage.begin(), AircraftMessage.end(), DatalinkToSend.callsign) != AircraftMessage.end()) {
@@ -122,75 +114,60 @@ void sendDatalinkMessage(void * arg)
 
 void pollMessages(void * arg)
 {
-	CBString raw = "";
 	CBString url = baseUrlDatalink;
 	url += "?logon=";
 	url += logonCode;
 	url += "&from=";
 	url += logonCallsign;
 	url += "&to=SERVER&type=POLL";
-	raw = httpHelper->downloadStringFromURL(url);
+	CBString response = httpHelper->downloadStringFromURL(url);
 
-	if (!StartsWith("ok", raw) || raw.length() <= 3)
+	if (!StartsWith("ok", response) || response.length() <= 3)
 		return;
 
-	raw = raw + " ";
-	raw = raw.midstr(3, raw.length() - 3);
+	response.remove(0, 3);
+	//response = response.midstr(3, response.length() - 3);
+	response.trim("{}");
 
-	CBString delimiter = "}} ";
-	size_t pos = 0;
-	CBString token;
-	while ((pos = raw.find(delimiter)) != BSTR_ERR) {
-		token = raw.midstr(1, pos);
+	CBStringList parts;
+	parts.split(response, '{');
 
-		CBString parsed;
-		stringstream input_stringstream(token);
-		struct AcarsMessage message;
-		int i = 1;
-		while (getline(input_stringstream, parsed, ' ')) {
-			if (i == 1)
-				message.from = parsed;
-			if (i == 2)
-				message.type = parsed;
-			if (i > 2) {
-				message.message += " ";
-				message.message += parsed;
+	CBStringList from_and_type;
+	from_and_type.split(parts[0], ' ');
+
+	struct AcarsMessage acars;
+	acars.from = from_and_type[0];
+	acars.type = from_and_type[1];
+	acars.message = parts[1];
+
+	if (acars.type == "cpdlc" || acars.type == "telex") {
+		if (acars.message.find("REQ") != BSTR_ERR || acars.message.find("CLR") != BSTR_ERR || acars.message.find("PDC") != BSTR_ERR || acars.message.find("PREDEP") != BSTR_ERR || acars.message.find("REQUEST") != BSTR_ERR) {
+			if (acars.message.find("LOGON") != BSTR_ERR) {
+				tmessage = "UNABLE";
+				ttype = "CPDLC";
+				tdest = DatalinkToSend.callsign;
+				_beginthread(sendDatalinkMessage, 0, NULL);
 			}
-
-			i++;
+			else {
+				if (PlaySoundClr) {
+					AFX_MANAGE_STATE(AfxGetStaticModuleState());
+					PlaySound(MAKEINTRESOURCE(IDR_WAVE1), AfxGetInstanceHandle(), SND_RESOURCE | SND_ASYNC);
+				}
+				AircraftDemandingClearance.push_back(acars.from);
+			}
+		}	
+		else if (acars.message.find("WILCO") != BSTR_ERR || acars.message.find("ROGER") != BSTR_ERR || acars.message.find("RGR") != BSTR_ERR) {
+			if (std::find(AircraftMessageSent.begin(), AircraftMessageSent.end(), acars.from) != AircraftMessageSent.end()) {
+				AircraftWilco.push_back(acars.from);
+			}
 		}
-		if (message.type.find("telex") != BSTR_ERR || message.type.find("cpdlc") != BSTR_ERR) {
-			if (message.message.find("REQ") != BSTR_ERR || message.message.find("CLR") != BSTR_ERR || message.message.find("PDC") != BSTR_ERR || message.message.find("PREDEP") != BSTR_ERR || message.message.find("REQUEST") != BSTR_ERR) {
-				if (message.message.find("LOGON") != BSTR_ERR) {
-					tmessage = "UNABLE";
-					ttype = "CPDLC";
-					tdest = DatalinkToSend.callsign;
-					_beginthread(sendDatalinkMessage, 0, NULL);
-				}
-				else {
-					if (PlaySoundClr) {
-						AFX_MANAGE_STATE(AfxGetStaticModuleState());
-						PlaySound(MAKEINTRESOURCE(IDR_WAVE1), AfxGetInstanceHandle(), SND_RESOURCE | SND_ASYNC);
-					}
-					AircraftDemandingClearance.push_back(message.from);
-				}
-			}
-			else if (message.message.find("WILCO") != BSTR_ERR || message.message.find("ROGER") != BSTR_ERR || message.message.find("RGR") != BSTR_ERR) {
-				if (std::find(AircraftMessageSent.begin(), AircraftMessageSent.end(), message.from) != AircraftMessageSent.end()) {
-					AircraftWilco.push_back(message.from);
-				}
-			}
-			else if (message.message.length() != 0) {
-				AircraftMessage.push_back(message.from);
-			}
-			PendingMessages[message.from] = message;
+		else if (acars.message.length() != 0) {
+			AircraftMessage.push_back(acars.from);
 		}
-
-		raw.remove(0, pos + delimiter.length());
+		PendingMessages[acars.from] = acars;
 	}
+}
 
-
-};
 
 void sendDatalinkClearance(void * arg)
 {
@@ -205,7 +182,6 @@ void sendDatalinkClearance(void * arg)
 	url += "&type=CPDLC&packet=/data2/";
 	messageId++;
 	url += CBString(*bformat("%d", messageId));
-	assert(false);
 	url += "//R/";
 	url += "CLR TO @";
 	url += DatalinkToSend.destination;
@@ -242,16 +218,11 @@ void sendDatalinkClearance(void * arg)
 	if (DatalinkToSend.message != "no" && DatalinkToSend.message.length() > 1)
 		url += DatalinkToSend.message;
 
-	size_t start_pos = 0;
-	assert(false);
-	while ((start_pos = url.find(" ", start_pos)) != std::string::npos) {
-		url.replace(start_pos, string(" ").length(), "%20");
-		start_pos += string("%20").length();
-	}
+	url.findreplace(" ", "%20");
 
-	raw = httpHelper->downloadStringFromURL(url);
+	CBString response = httpHelper->downloadStringFromURL(url);
 
-	if (StartsWith("ok", raw)) {
+	if (StartsWith("ok", response)) {
 		if (std::find(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), DatalinkToSend.callsign) != AircraftDemandingClearance.end()) {
 			AircraftDemandingClearance.erase(std::remove(AircraftDemandingClearance.begin(), AircraftDemandingClearance.end(), DatalinkToSend.callsign), AircraftDemandingClearance.end());
 		}
@@ -266,8 +237,11 @@ void sendDatalinkClearance(void * arg)
 
 void vStripsReceiveThread(const asio::error_code &error, size_t bytes_transferred)
 {
+	// @TODO @HACK @BUG
+	// Never tested this with the new CBString, no idea if it works
+	// And since vStrips is no longer really a thing, is there any reason to still keep it?
+
 	Logger::info(__FUNCSIG__);
-	assert(false);
 	CBString out(recv_buf, bytes_transferred);
 
 	// Processing the data
@@ -573,9 +547,7 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 
 			AcarsMessage msg = PendingMessages[FlightPlan.GetCallsign()];
 			dia.m_Req = CString((const char*)msg.message);
-
-			CBString toReturn = "";
-
+						
 			if (dia.DoModal() != IDOK)
 				return;
 
@@ -623,34 +595,27 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			dia.m_Departure = FlightPlan.GetFlightPlanData().GetSidName();
 			dia.m_Rwy = FlightPlan.GetFlightPlanData().GetDepartureRwy();
 			dia.m_SSR = FlightPlan.GetControllerAssignedData().GetSquawk();
-			CBString freq = *bformat("%f", ControllerMyself().GetPrimaryFrequency());
-			assert(false);
+			CBString freq = *bformat("%.3f", ControllerMyself().GetPrimaryFrequency());
 
 			if (ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency() != 0)
-				CBString freq = *bformat("%f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
+				CBString freq = *bformat("%.3f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
 			freq.trunc(7);
 			dia.m_Freq = CString((const char*)freq);
 			AcarsMessage msg = PendingMessages[FlightPlan.GetCallsign()];
 			dia.m_Req = CString((const char*)msg.message);
 
-			CBString toReturn = "";
+			
 
 			int ClearedAltitude = FlightPlan.GetControllerAssignedData().GetClearedAltitude();
 			int Ta = GetTransitionAltitude();
+			CBString toReturn;
 
 			if (ClearedAltitude != 0) {
-				if (ClearedAltitude > Ta && ClearedAltitude > 2) {
-					assert(false);
-					CBString str = *bformat("%d", ClearedAltitude);
-					for (int i = 0; i < 5 - str.length(); i++)
-						str = "0" + str;
-					str.trunc(3);
-					toReturn = "FL";
-					toReturn += str;
+				if (ClearedAltitude > Ta && ClearedAltitude > 2) {					
+					toReturn.format("FL%03d", ClearedAltitude/100);
 				}
 				else if (ClearedAltitude <= Ta && ClearedAltitude > 2) {
-					toReturn.format("%d", ClearedAltitude);
-					toReturn += "ft";
+					toReturn.format("%dft", ClearedAltitude);
 				}
 			}
 			dia.m_Climb = CString((const char*)toReturn);

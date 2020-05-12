@@ -9,7 +9,8 @@
 ULONG_PTR m_gdiplusToken;
 CPoint mouseLocation(0, 0);
 CBString TagBeingDragged;
-int LeaderLineDefaultlength = 50;
+
+int tagLineDefaultLength = 50;
 
 bool onFunctionCallDoubleCallHack = false;
 
@@ -190,8 +191,6 @@ void CSMRRadar::LoadProfile(CBString profileName)
 	// Loading the new profile
 	CurrentConfig->setActiveProfile(profileName);
 
-	LeaderLineDefaultlength = CurrentConfig->getActiveProfile()["labels"]["leader_line_length"].GetInt();
-
 	// Reloading the fonts
 	LoadCustomFont();
 
@@ -310,8 +309,11 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 	if ((p_value = GetDataFromAsr("GndTrailsDots")) != NULL)
 		Trail_Gnd = atoi(p_value);
 
-	if ((p_value = GetDataFromAsr("PredictedLine")) != NULL)
-		PredictedLenght = atoi(p_value);
+	if ((p_value = GetDataFromAsr("PredictedTrackLength")) != NULL)
+		predictedTrackLength = strtof(p_value, NULL);
+
+	if ((p_value = GetDataFromAsr("PredictedTrackWidth")) != NULL)
+		predictedTrackWidth = strtof(p_value, NULL);
 
 	if ((p_value = GetDataFromAsr("CustomCursor")) != NULL)
 		useCustomCursor = atoi(p_value) == 1 ? true : false;
@@ -386,8 +388,11 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	temp.format("%d", Trail_Gnd);
 	SaveDataToAsr("GndTrailsDots", "vSMR GRND Trail Dots", temp);
 
-	temp.format("%d", PredictedLenght);
-	SaveDataToAsr("PredictedLine", "vSMR Predicted Track Lines", temp);
+	temp.format("%f", predictedTrackLength);
+	SaveDataToAsr("PredictedTrackLength", "vSMR Predicted Track Lines", temp);
+
+	temp.format("%f", predictedTrackWidth);
+	SaveDataToAsr("PredictedTrackWidth", "vSMR Predicted Track Lines", temp);
 
 	temp.format("%d", isProMode);
 	SaveDataToAsr("ProMode", "vSMR Professional mode for correlation", temp);
@@ -533,8 +538,8 @@ void CSMRRadar::OnMoveScreenObject(int ObjectType, const char * sObjectId, POINT
 					angles.push_back(k);
 
 				TagAngles[sObjectId] = closest(angles, angle);
-				TagLeaderLineLength[sObjectId] = max(LeaderLineDefaultlength, min(int(DistancePts(AcPosPix, TagCenterPix)), LeaderLineDefaultlength * 2));
-
+				TagLeaderLineLength[sObjectId] = max(tagLineDefaultLength, min(int(DistancePts(AcPosPix, TagCenterPix)), tagLineDefaultLength * 2));
+				TagsOffsets.erase(sObjectId);
 			}
 			else {
 				TagsOffsets[sObjectId] = CustomTag;
@@ -686,7 +691,8 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("Afterglow", "", RIMCAS_UPDATE_AFTERGLOW, false, int(Afterglow));
 			GetPlugIn()->AddPopupListElement("GRND Trail Dots", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("APPR Trail Dots", "", RIMCAS_OPEN_LIST);
-			GetPlugIn()->AddPopupListElement("Predicted Track Line", "", RIMCAS_OPEN_LIST);
+			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Length: %.1f", predictedTrackLength), ' '), "", RIMCAS_UPDATE_PTL_LENGTH_EDIT);
+			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Width: %.2f", predictedTrackWidth), ' '), "", RIMCAS_UPDATE_PTL_WIDTH_EDIT);
 			GetPlugIn()->AddPopupListElement("Acquire", "", RIMCAS_UPDATE_ACQUIRE);
 			GetPlugIn()->AddPopupListElement("Release", "", RIMCAS_UPDATE_RELEASE);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
@@ -992,11 +998,30 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_FONTSIZE_EDITOR, bstr2cstr(bformat("%d", currentFontSize), ' '));
 		onFunctionCallDoubleCallHack = true;
 	}
-
 	else if (FunctionId == RIMCAS_UPDATE_FONTSIZE_EDITOR) {
 		if (onFunctionCallDoubleCallHack) {
 			currentFontSize = atoi(sItemString);
 			LoadCustomFont();
+			onFunctionCallDoubleCallHack = false;
+		}
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_LENGTH_EDIT) {
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_LENGTH_EDITOR, bstr2cstr(bformat("%.1f", predictedTrackLength), ' '));
+		onFunctionCallDoubleCallHack = true;
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_LENGTH_EDITOR) {
+		if (onFunctionCallDoubleCallHack) {
+			predictedTrackLength = strtof(sItemString, NULL);
+			onFunctionCallDoubleCallHack = false;
+		}
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDIT) {
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_WIDTH_EDITOR, bstr2cstr(bformat("%.2f", predictedTrackWidth), ' '));
+		onFunctionCallDoubleCallHack = true;
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDITOR) {
+		if (onFunctionCallDoubleCallHack) {
+			predictedTrackWidth = strtof(sItemString, NULL);
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
@@ -1109,12 +1134,6 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		Trail_App = atoi(sItemString);
 
 		ShowLists["APPR Trail Dots"] = true;
-	}
-
-	else if (FunctionId == RIMCAS_UPDATE_PTL) {
-		PredictedLenght = atoi(sItemString);
-
-		ShowLists["Predicted Track Line"] = true;
 	}
 
 	else if (FunctionId == RIMCAS_BRIGHTNESS_LABEL) {
@@ -1730,7 +1749,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 {
-	/* 
+	/*
 	if (Phase != REFRESH_PHASE_BEFORE_TAGS)
 		return;
 
@@ -1922,7 +1941,6 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		TagDeconflict();
 	}
 
-	TimePopupData.clear();
 	RimcasInstance->AcOnRunway.clear();
 	ColorAC.clear();
 	tagAreas.clear();
@@ -2107,7 +2125,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		ShowLists["APPR Trail Dots"] = false;
 	}
 
-	if (ShowLists["Predicted Track Line"]) {
+	/*if (ShowLists["Predicted Track Line"]) {
 		GetPlugIn()->OpenPopupList(ListAreas["Predicted Track Line"], "Predicted Track Line", 1);
 		GetPlugIn()->AddPopupListElement("0", "", RIMCAS_UPDATE_PTL, false, int(bool(PredictedLenght == 0)));
 		GetPlugIn()->AddPopupListElement("1", "", RIMCAS_UPDATE_PTL, false, int(bool(PredictedLenght == 1)));
@@ -2117,7 +2135,7 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 		GetPlugIn()->AddPopupListElement("5", "", RIMCAS_UPDATE_PTL, false, int(bool(PredictedLenght == 5)));
 		GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
 		ShowLists["Predicted Track Line"] = false;
-	}
+	}*/
 
 	if (ShowLists["Brightness"]) {
 		GetPlugIn()->OpenPopupList(ListAreas["Brightness"], "Brightness", 1);
@@ -2399,13 +2417,10 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 		// Predicted Track Line
 		// It starts 20 seconds away from the ac
 		if (reportedGS > 50) {
-			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * 10;
-			CPosition AwayBase = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
+			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (predictedTrackLength * 60.0);
+			CPosition PredictedEnd = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
 
-			d = double(rt.GetPosition().GetReportedGS()*0.514444) * (PredictedLenght * 60) - 10;
-			CPosition PredictedEnd = BetterHarversine(AwayBase, rt.GetTrackHeading(), d);
-
-			dc->MoveTo(ConvertCoordFromPositionToPixel(AwayBase));
+			dc->MoveTo(ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition()));
 			dc->LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
 		}
 
@@ -2471,7 +2486,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		// Getting the tag center/offset
 		POINT acPosPix;
 		POINT TagCenter;
-		int length = LeaderLineDefaultlength;
+		int length = tagLineDefaultLength;
 
 		if (insetWindow == nullptr) {
 			acPosPix = ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition());
@@ -2536,8 +2551,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		map<CBString, TagItem> TagMap = GenerateTagData(rt, fp, this, ActiveAirport);
 
 		StringFormat* stformat = new Gdiplus::StringFormat();
-		stformat->SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);
-		assert(false);
+		stformat->SetFormatFlags(StringFormatFlagsMeasureTrailingSpaces);		
 		// Look at this https://stackoverflow.com/questions/1203087/why-is-graphics-measurestring-returning-a-higher-than-expected-number
 
 		// Get the TAG label settings
@@ -2601,9 +2615,6 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			for (unsigned int j = 0; j < line.Size(); j++) {
 				mesureRect = RectF(0, 0, 0, 0);
 				CBString tagKey = line[j].GetString();
-
-				//for (auto& kv : TagReplacingMap)
-				//replaceAll(element, kv.first, kv.second);
 
 				lineTagItemArray.push_back(TagMap[tagKey]);
 
@@ -2713,7 +2724,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			}
 			*/
 
-			// Drawing the leader line
+			// Drawing the tag line
 			RECT TagBackRectData = TagBackgroundRect;
 			POINT toDraw1, toDraw2;
 			if (LiangBarsky(TagBackRectData, acPosPix, TagBackgroundRect.CenterPoint(), toDraw1, toDraw2))
@@ -2733,6 +2744,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 					wstring rimcasw = L"ALERT";
 					RectF RectRimcas_height;
+					stformat->SetAlignment(StringAlignment::StringAlignmentCenter);
 
 					graphics->MeasureString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(0, 0), stformat, &RectRimcas_height);
 					rimcas_height = int(RectRimcas_height.GetBottom());
@@ -2744,6 +2756,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 					// Drawing the text
 					graphics->DrawString(rimcasw.c_str(), wcslen(rimcasw.c_str()), customFont, PointF(Gdiplus::REAL((TagBackgroundRect.left + TagBackgroundRect.right) / 2), Gdiplus::REAL(TagBackgroundRect.top)), stformat, &RimcasTextColor);
+					stformat->SetAlignment(StringAlignment::StringAlignmentNear);
 				}
 			}
 
@@ -2897,9 +2910,6 @@ void CSMRRadar::TagDeconflict() {
 
 	for (const auto areas : tagAreas) {		
 
-		if (TagsOffsets.find(areas.first) != TagsOffsets.end())
-			continue;
-
 		if (IsTagBeingDragged(areas.first))
 			continue;
 
@@ -2914,7 +2924,6 @@ void CSMRRadar::TagDeconflict() {
 		}
 
 		// We need to see wether the rotation will be clockwise or anti-clockwise
-
 		bool isAntiClockwise = false;
 
 		for (const auto area2 : tagAreas) {
@@ -2937,7 +2946,7 @@ void CSMRRadar::TagDeconflict() {
 		// We then rotate the tags until we did a 360 or there is no more conflicts
 
 		POINT acPosPix = ConvertCoordFromPositionToPixel(GetPlugIn()->RadarTargetSelect(areas.first).GetPosition().GetPosition());
-		int length = LeaderLineDefaultlength;
+		int length = tagLineDefaultLength;
 		if (TagLeaderLineLength.find(areas.first) != TagLeaderLineLength.end())
 			length = TagLeaderLineLength[areas.first];
 
@@ -2967,7 +2976,6 @@ void CSMRRadar::TagDeconflict() {
 					continue;
 
 				CRect h;
-
 				if (h.IntersectRect(NewRectangle, area2.second)) {
 					isTagConflicing = true;
 					break;

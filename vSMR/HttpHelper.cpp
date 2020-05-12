@@ -23,7 +23,7 @@ size_t HttpHelper::handle_data(void *ptr, size_t size, size_t nmemb, void *strea
 	return size*nmemb;
 }
 
-CBString HttpHelper::downloadStringFromURL(CBString url) {
+CBString HttpHelper::downloadStringFromURL(const char* url) {
 	CURL *curl = curl_easy_init();
 	if (curl)
 	{

@@ -83,9 +83,7 @@ public:
 	static map<CBString, CBString> vStripsStands;
 
 	bool BLINK = false;
-
-	map<CBString, POINT> TagsOffsets;
-
+	
 	//vector<string> Active_Arrivals;
 
 	clock_t clock_init, clock_final;
@@ -136,6 +134,7 @@ public:
 	set<CBString> tagDetailed;
 	map<CBString, CRect> tagAreas;
 	map<CBString, double> TagAngles;
+	map<CBString, POINT> TagsOffsets;
 	map<CBString, int> TagLeaderLineLength;
 
 	bool QDMenabled = false;
@@ -147,8 +146,6 @@ public:
 	bool isLVP = false;
 
 	map<CBString, RECT> TimePopupAreas;
-
-	map<int, CBString> TimePopupData;
 	//multimap<string, string> AcOnRunway;
 	map<CBString, bool> ColorAC;
 
@@ -173,7 +170,8 @@ public:
 
 	int Trail_Gnd = 4;
 	int Trail_App = 4;
-	int PredictedLenght = 0;
+	float predictedTrackLength = 0.5;
+	float predictedTrackWidth = 0;
 
 	bool NeedCorrelateCursor = false;
 	bool ReleaseInProgress = false;

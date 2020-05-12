@@ -12,7 +12,7 @@ IMPLEMENT_DYNAMIC(CCPDLCSettingsDialog, CDialogEx)
 
 CCPDLCSettingsDialog::CCPDLCSettingsDialog(CWnd* pParent /*=NULL*/)
 	: CDialogEx(CCPDLCSettingsDialog::IDD, pParent)
-	, m_Logon(_T("EGKK"))
+	, m_Logon(_T("LSGG"))
 	, m_Password(_T("PASSWORD"))
 	, m_Sound(1)
 {

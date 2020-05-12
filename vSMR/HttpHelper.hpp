@@ -11,7 +11,7 @@ private:
 
 public:
 	HttpHelper();
-	CBString downloadStringFromURL(CBString url);
+	CBString downloadStringFromURL(const char* url);
 	~HttpHelper();
 
 };
