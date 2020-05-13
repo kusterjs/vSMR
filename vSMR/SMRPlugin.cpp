@@ -127,13 +127,21 @@ void pollMessages(void * arg)
 
 	response.remove(0, 3);
 	//response = response.midstr(3, response.length() - 3);
-	response.trim("{}");
+	response.trim();
+	response.trim('{');
+	response.trim('}');
 
 	CBStringList parts;
 	parts.split(response, '{');
 
+	if (parts.size() < 2)
+		return;
+
 	CBStringList from_and_type;
 	from_and_type.split(parts[0], ' ');
+	
+	if (from_and_type.size() < 2)
+		return;
 
 	struct AcarsMessage acars;
 	acars.from = from_and_type[0];
@@ -595,44 +603,44 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			dia.m_Departure = FlightPlan.GetFlightPlanData().GetSidName();
 			dia.m_Rwy = FlightPlan.GetFlightPlanData().GetDepartureRwy();
 			dia.m_SSR = FlightPlan.GetControllerAssignedData().GetSquawk();
-			CBString freq = *bformat("%.3f", ControllerMyself().GetPrimaryFrequency());
 
+			CBString nextFreq = *bformat("%.3f", ControllerMyself().GetPrimaryFrequency());
 			if (ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency() != 0)
-				CBString freq = *bformat("%.3f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
-			freq.trunc(7);
-			dia.m_Freq = CString((const char*)freq);
+				nextFreq = *bformat("%.3f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
+			nextFreq.trunc(7);
+			dia.m_Freq = CString((const char*)nextFreq);
+			
 			AcarsMessage msg = PendingMessages[FlightPlan.GetCallsign()];
 			dia.m_Req = CString((const char*)msg.message);
-
-			
-
+				
 			int ClearedAltitude = FlightPlan.GetControllerAssignedData().GetClearedAltitude();
 			int Ta = GetTransitionAltitude();
-			CBString toReturn;
+			CBString initClimb;
 
 			if (ClearedAltitude != 0) {
 				if (ClearedAltitude > Ta && ClearedAltitude > 2) {					
-					toReturn.format("FL%03d", ClearedAltitude/100);
+					initClimb.format("FL%03d", ClearedAltitude/100);
 				}
 				else if (ClearedAltitude <= Ta && ClearedAltitude > 2) {
-					toReturn.format("%dft", ClearedAltitude);
+					initClimb.format("%dft", ClearedAltitude);
 				}
 			}
-			dia.m_Climb = CString((const char*)toReturn);
+			dia.m_Climb = CString((const char*)initClimb);
+
 
 			if (dia.DoModal() != IDOK)
 				return;
 
-			DatalinkToSend.callsign = FlightPlan.GetCallsign();
-			DatalinkToSend.destination = FlightPlan.GetFlightPlanData().GetDestination();
-			DatalinkToSend.rwy = FlightPlan.GetFlightPlanData().GetDepartureRwy();
-			DatalinkToSend.sid = FlightPlan.GetFlightPlanData().GetSidName();
+			DatalinkToSend.callsign = dia.m_Callsign;
+			DatalinkToSend.destination = dia.m_Dest;
+			DatalinkToSend.rwy = dia.m_Rwy;
+			DatalinkToSend.sid = dia.m_Departure;
 			DatalinkToSend.asat = dia.m_TSAT;
 			DatalinkToSend.ctot = dia.m_CTOT;
 			DatalinkToSend.freq = dia.m_Freq;
 			DatalinkToSend.message = dia.m_Message;
-			DatalinkToSend.squawk = FlightPlan.GetControllerAssignedData().GetSquawk();
-			DatalinkToSend.climb = toReturn;
+			DatalinkToSend.squawk = dia.m_SSR;
+			DatalinkToSend.climb = dia.m_Climb;
 
 			myfrequency.format("%.3f", ControllerMyself().GetPrimaryFrequency());
 

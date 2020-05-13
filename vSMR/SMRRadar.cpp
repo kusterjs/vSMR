@@ -2597,10 +2597,10 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		
 
 		REAL TagWidth = 0, TagHeight = 0;
-		REAL TAG_PADDING_LEFT = (REAL)currentFontSize / 4.0;
+		REAL TAG_PADDING_LEFT = (REAL)(currentFontSize / 4.0);
 		REAL TAG_PADDING_RIGHT = TAG_PADDING_LEFT;
-		REAL TAG_PADDING_TOP = TAG_PADDING_LEFT*0.5;
-		REAL TAG_PADDING_BOTTOM = TAG_PADDING_LEFT*0.5;
+		REAL TAG_PADDING_TOP = TAG_PADDING_LEFT*(REAL)0.5;
+		REAL TAG_PADDING_BOTTOM = TAG_PADDING_LEFT*(REAL)0.5;
 		
 		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
 
