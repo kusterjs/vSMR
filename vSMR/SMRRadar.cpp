@@ -181,7 +181,7 @@ void CSMRRadar::LoadCustomFont()
 	if (strcmp(CurrentConfig->getActiveProfile()["font"]["weight"].GetString(), "Italic") == 0)
 		fontStyle = Gdiplus::FontStyleItalic;
 
-	customFont = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(currentFontSize), fontStyle, Gdiplus::UnitPixel);
+	customFont = new Gdiplus::Font(buffer.c_str(), Gdiplus::REAL(currentFontSize), fontStyle, Gdiplus::UnitPixel); // @Leak
 }
 
 void CSMRRadar::LoadProfile(CBString profileName)
@@ -312,7 +312,7 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		predictedTrackLength = strtof(p_value, NULL);
 
 	if ((p_value = GetDataFromAsr("PredictedTrackWidth")) != NULL)
-		predictedTrackWidth = strtof(p_value, NULL);
+		predictedTrackWidth = atoi(p_value);
 
 	if ((p_value = GetDataFromAsr("CustomCursor")) != NULL)
 		useCustomCursor = atoi(p_value) == 1 ? true : false;
@@ -390,7 +390,7 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	temp.format("%f", predictedTrackLength);
 	SaveDataToAsr("PredictedTrackLength", "vSMR Predicted Track Lines", temp);
 
-	temp.format("%f", predictedTrackWidth);
+	temp.format("%d", predictedTrackWidth);
 	SaveDataToAsr("PredictedTrackWidth", "vSMR Predicted Track Lines", temp);
 
 	temp.format("%d", isProMode);
@@ -691,7 +691,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("GRND Trail Dots", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement("APPR Trail Dots", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Length: %.1f", predictedTrackLength), ' '), "", RIMCAS_UPDATE_PTL_LENGTH_EDIT);
-			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Width: %.2f", predictedTrackWidth), ' '), "", RIMCAS_UPDATE_PTL_WIDTH_EDIT);
+			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Width: %d", predictedTrackWidth), ' '), "", RIMCAS_UPDATE_PTL_WIDTH_EDIT);
 			GetPlugIn()->AddPopupListElement("Acquire", "", RIMCAS_UPDATE_ACQUIRE);
 			GetPlugIn()->AddPopupListElement("Release", "", RIMCAS_UPDATE_RELEASE);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
@@ -1015,12 +1015,12 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		}
 	}
 	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDIT) {
-		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_WIDTH_EDITOR, bstr2cstr(bformat("%.2f", predictedTrackWidth), ' '));
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_WIDTH_EDITOR, bstr2cstr(bformat("%d", predictedTrackWidth), ' '));
 		onFunctionCallDoubleCallHack = true;
 	}
 	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDITOR) {
 		if (onFunctionCallDoubleCallHack) {
-			predictedTrackWidth = strtof(sItemString, NULL);
+			predictedTrackWidth = atoi(sItemString);
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
@@ -1804,6 +1804,11 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	return;
 	*/
 
+	for (int tt = 0; tt < 100000; tt++) {
+		// Memory leak checker, put whatever you think might leak here and monitor RAM		
+	}
+
+
 	Logger::info(__FUNCSIG__);
 	// Changing the mouse cursor
 	if (initCursor) {
@@ -2000,8 +2005,8 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 			// Draw an arc segment
 			CPen arcPen(PS_SOLID, 2, aircraft.colors.second);
 			CBrush arcBrush(aircraft.colors.first);
-			defer(DeleteObject(arcPen));
-			defer(DeleteObject(arcBrush));
+			//defer(DeleteObject(arcPen)); // These don't actually leak
+			//defer(DeleteObject(arcBrush));
 
 			dc.SelectObject(arcPen);
 			dc.SelectObject(arcBrush);
@@ -2392,8 +2397,8 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 			acPosPix = insetWindow->projectPoint(RtPos.GetPosition(), AirportPositions[ActiveAirport]);			
 		}
 		
-		CPen qTrailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
-		CPen* pqOrigPen = dc->SelectObject(&qTrailPen);
+		CPen trailPen(PS_SOLID, 1, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
+		CPen* origPen = dc->SelectObject(&trailPen);
 
 		if (RtPos.GetTransponderC()) {
 			dc->MoveTo({ acPosPix.x, acPosPix.y - 6 });
@@ -2414,7 +2419,9 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 		}
 
 		// Predicted Track Line
-		// It starts 20 seconds away from the ac
+		CPen predictTrackPen(PS_SOLID, predictedTrackWidth, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
+		dc->SelectObject(&predictTrackPen);
+		
 		if (reportedGS > 50) {
 			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (predictedTrackLength * 60.0);
 			CPosition PredictedEnd = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
@@ -2451,7 +2458,7 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 		else {
 			AddScreenObject(DRAWING_AC_SYMBOL_APPWINDOW_BASE + (insetWindow->m_Id - SRW_APPWINDOW), rt.GetCallsign(), { acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 }, false, GetBottomLine(rt.GetCallsign()));
 		}
-		dc->SelectObject(pqOrigPen);
+		dc->SelectObject(origPen);
 	}
 }
 
@@ -2576,11 +2583,11 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 			fontSizeScaling = LabelsSettings[getEnumString(ColorTagType)]["first_line_font_factor"].GetDouble();
 			fontsize = round((float)fontSizeScaling * fontsize);
 		}
-		Gdiplus::Font* firstLineFont = new Gdiplus::Font(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel);
-		defer(delete(firstLineFont));
+		Gdiplus::Font firstLineFont(wide_font_name.c_str(), Gdiplus::REAL(fontsize), customFont->GetStyle(), Gdiplus::UnitPixel);
+		//defer(delete(firstLineFont));
 
 		mesureRect = RectF(0, 0, 0, 0);
-		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), firstLineFont, PointF(0, 0), stformat, &mesureRect);
+		graphics->MeasureString(L"AZERTYUIOPQSDFGHJKLMWXCVBN", wcslen(L"AZERTYUIOPQSDFGHJKLMWXCVBN"), &firstLineFont, PointF(0, 0), stformat, &mesureRect);
 		auto firstLineHeight = mesureRect.GetBottom();
 
 		// get label lines definitions
@@ -2597,10 +2604,10 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		
 
 		REAL TagWidth = 0, TagHeight = 0;
-		REAL TAG_PADDING_LEFT = (REAL)(currentFontSize / 4.0);
-		REAL TAG_PADDING_RIGHT = TAG_PADDING_LEFT;
-		REAL TAG_PADDING_TOP = TAG_PADDING_LEFT*(REAL)0.5;
-		REAL TAG_PADDING_BOTTOM = TAG_PADDING_LEFT*(REAL)0.5;
+		REAL TAG_PADDING_LEFT = 0;// (REAL)(currentFontSize / 4.0);
+		REAL TAG_PADDING_RIGHT = 0;// TAG_PADDING_LEFT;
+		REAL TAG_PADDING_TOP = 0;// TAG_PADDING_LEFT*(REAL)0.5;
+		REAL TAG_PADDING_BOTTOM = 0;// TAG_PADDING_LEFT*(REAL)0.5;
 		
 		for (unsigned int i = 0; i < LabelLines.Size(); i++) {
 
@@ -2629,7 +2636,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 				wstring wstr = ToWString(TagMap[tagKey].value);
 				if (i == 0) {
-					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), firstLineFont, PointF(0, 0), stformat, &mesureRect); // special case for first line
+					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), &firstLineFont, PointF(0, 0), stformat, &mesureRect); // special case for first line
 				}
 				else {
 					graphics->MeasureString(wstr.c_str(), wcslen(wstr.c_str()), customFont, PointF(0, 0), stformat, &mesureRect);
@@ -2804,11 +2811,11 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					if (heightOffset == TAG_PADDING_TOP) { // first line
 						heightOffset;
 
-						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), &firstLineFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
 							stformat, color);
 
-						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), firstLineFont,
+						graphics->MeasureString(welement.c_str(), wcslen(welement.c_str()), &firstLineFont,
 							PointF(0, 0), stformat, &mRect);
 					}
 					else {
