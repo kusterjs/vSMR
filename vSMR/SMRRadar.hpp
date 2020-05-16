@@ -67,7 +67,7 @@ template <class T> void SafeRelease(T **ppT)
 #define SCRATCHPAD_EMPTY_SPACES "                          "
 
 namespace SMRPluginSharedData {
-	static asio::io_service io_service;
+	static asio::io_service io_service;	
 }
 
 //using namespace SMRSharedData;
@@ -81,6 +81,7 @@ public:
 
 	static set<CBString> manuallyCorrelated;
 	static map<CBString, CBString> vStripsStands;
+	static bool onFunctionCallDoubleCallHack;
 
 	bool BLINK = false;
 	

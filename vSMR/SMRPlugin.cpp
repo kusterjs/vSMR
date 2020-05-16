@@ -479,6 +479,22 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 	----------------------------------------------------------------------------------------------- */
 
 	switch (FunctionId) {
+
+	case TAG_FUNC_STAND_EDIT: {
+			CFlightPlan fp = FlightPlanSelectASEL();
+			OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, CSMRRadar::GetStandNumber(fp));
+			CSMRRadar::onFunctionCallDoubleCallHack = true;
+			break;
+		}
+
+	case TAG_FUNC_STAND_EDITOR: { // when finished editing
+			if (CSMRRadar::onFunctionCallDoubleCallHack) {
+				CFlightPlan fp = FlightPlanSelectASEL();
+				CSMRRadar::SetStandNumber(fp, sItemString);
+				CSMRRadar::onFunctionCallDoubleCallHack = false;
+			}
+			break;
+		}
 	
 	case TAG_FUNC_DATALINK_MENU: {
 		CFlightPlan FlightPlan = FlightPlanSelectASEL();

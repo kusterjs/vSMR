@@ -10,8 +10,7 @@ CPoint mouseLocation(0, 0);
 CBString TagBeingDragged;
 
 int tagLineDefaultLength = 50;
-
-bool onFunctionCallDoubleCallHack = false;
+bool onFunctionCallDoubleCallHack;
 
 //
 // Cursor Things
@@ -35,6 +34,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 set<CBString> CSMRRadar::manuallyCorrelated;
 map<CBString, CBString> CSMRRadar::vStripsStands;
+bool CSMRRadar::onFunctionCallDoubleCallHack = false;
 
 
 map<int, CInsetWindow *> appWindows;
@@ -111,8 +111,6 @@ CSMRRadar::CSMRRadar()
 	tagCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRMOVETAG), IMAGE_CURSOR, 0, 0, LR_SHARED));
 	correlateCursor = CopyCursor((HCURSOR)::LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDC_SMRCORRELATE), IMAGE_CURSOR, 0, 0, LR_SHARED));
 	mouseCursor = defaultCursor;
-
-	ActiveAirport = "LSZH";
 
 	// Setting up the data for the 2 approach windows
 	appWindowDisplays[1] = false;
@@ -963,22 +961,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	not sure what the point would be or if it's any good either, just weird all around
 	----------------------------------------------------------------------------------------------- */
 
-
-	if (FunctionId == TAG_FUNC_STAND_EDIT) {
-		CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
-		GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_STAND_EDITOR, CSMRRadar::GetStandNumber(fp));
-		onFunctionCallDoubleCallHack = true;
-	}
-
-	else if (FunctionId == TAG_FUNC_STAND_EDITOR) { // when finished editing
-		if (onFunctionCallDoubleCallHack) {
-			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
-			CSMRRadar::SetStandNumber(fp, sItemString);
-			onFunctionCallDoubleCallHack = false;
-		}
-	}
-
-	else if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
+	if (FunctionId == TAG_FUNC_SCRATCHPAD_EDITOR) { // when finished editing
 		if (onFunctionCallDoubleCallHack) {
 			CFlightPlan fp = GetPlugIn()->FlightPlanSelectASEL();
 			fp.GetControllerAssignedData().SetScratchPadString(sItemString);
@@ -988,6 +971,7 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 
 	else if (FunctionId == RIMCAS_ACTIVE_AIRPORT_FUNC) {
 		ActiveAirport = sItemString;
+		ActiveAirport.toupper();
 		LoadProfile(CurrentConfig->getActiveProfile()["name"].GetString());
 		ReloadActiveRunways();
 		SaveDataToAsr("Airport", "Active airport", ActiveAirport);
@@ -1804,9 +1788,9 @@ void CSMRRadar::OnRefresh(HDC hDC, int Phase)
 	return;
 	*/
 
-	for (int tt = 0; tt < 100000; tt++) {
+	//for (int tt = 0; tt < 100000; tt++) {
 		// Memory leak checker, put whatever you think might leak here and monitor RAM		
-	}
+	//}
 
 
 	Logger::info(__FUNCSIG__);
@@ -2566,7 +2550,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		// First we need to figure out the tag size		
 		RectF mesureRect;
 		graphics->MeasureString(L" ", wcslen(L" "), customFont, PointF(0, 0), stformat, &mesureRect);
-		auto blankWidth = mesureRect.GetRight();
+		auto blankWidth = mesureRect.GetRight()*(REAL)0.8;
 
 		// default font size
 		mesureRect = RectF(0, 0, 0, 0);
@@ -2643,8 +2627,8 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 				}
 				lineWidth += mesureRect.GetRight();
 
-				if (j != line.Size() - 1) {
-					//lineWidth += blankWidth;
+				if (j != line.Size() - 1 && i != 0) {
+					lineWidth += blankWidth;
 				}
 			}
 			lineWidth += TAG_PADDING_RIGHT;
@@ -2782,10 +2766,12 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 			// Draw tag text and clickable zones
 			Gdiplus::REAL heightOffset = TAG_PADDING_TOP;
-			for (auto&& line : ReplacedLabelLines) {
+			for (unsigned int i = 0; i < ReplacedLabelLines.size(); i++) {
 
+				auto line = ReplacedLabelLines[i];
 				Gdiplus::REAL widthOffset = TAG_PADDING_LEFT;
-				for (auto&& tagItem : line) {
+				for (unsigned int j = 0; j < line.size(); j++) {
+					auto tagItem = line[j];
 					SolidBrush* color = &FontColor;
 					if (TagMap["sqerror"].value.length() > 0 && tagItem.value == TagMap["sqerror"].value)
 						color = &SquawkErrorColor;
@@ -2808,9 +2794,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 						widthOffset -= blankWidth; // We don't want a space between the callsign and the comm type if it's there
 					}
 
-					if (heightOffset == TAG_PADDING_TOP) { // first line
-						heightOffset;
-
+					if (i == 0) { // first line
 						graphics->DrawString(welement.c_str(), wcslen(welement.c_str()), &firstLineFont,
 							PointF(Gdiplus::REAL(TagBackgroundRect.left) + widthOffset, Gdiplus::REAL(TagBackgroundRect.top) + heightOffset),
 							stformat, color);
@@ -2832,10 +2816,14 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
 
-					widthOffset += mRect.GetRight();					
+					widthOffset += mRect.GetRight();	
+
+					if (j != line.size() - 1 && i != 0) {
+						widthOffset += blankWidth;
+					}
 				}
 
-				if (heightOffset == TAG_PADDING_TOP) {
+				if (i == 0) {
 					heightOffset += firstLineHeight;
 				}
 				else {
