@@ -358,6 +358,12 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 		if ((p_value = GetDataFromAsr(prefix + "ExtendedLinesTickSpacing")) != NULL)
 			appWindows[i]->m_ExtendedLinesTickSpacing = atoi(p_value);
 
+		if ((p_value = GetDataFromAsr(prefix + "PredictedTrackLineLength")) != NULL)
+			appWindows[i]->m_PredictedTrackLineLength = strtof(p_value, NULL);
+
+		if ((p_value = GetDataFromAsr(prefix + "PredictedTrackLineWidth")) != NULL)
+			appWindows[i]->m_PredictedTrackLineWidth = atoi(p_value);
+
 		if ((p_value = GetDataFromAsr(prefix + "Display")) != NULL)
 			appWindowDisplays[i] = atoi(p_value) == 1 ? true : false;
 	}
@@ -438,6 +444,12 @@ void CSMRRadar::OnAsrContentToBeSaved()
 
 		temp.format("%d", appWindows[i]->m_ExtendedLinesTickSpacing);
 		SaveDataToAsr(prefix + "ExtendedLinesTickSpacing", prefix + " extended line tick spacing", temp);
+
+		temp.format("%f", appWindows[i]->m_PredictedTrackLineLength);
+		SaveDataToAsr(prefix + "PredictedTrackLineLength", prefix + " predicted track line length", temp);
+
+		temp.format("%d", appWindows[i]->m_PredictedTrackLineWidth);
+		SaveDataToAsr(prefix + "PredictedTrackLineWidth", prefix + " predicted track line width", temp);
 
 		CBString to_save = "0";
 		if (appWindowDisplays[i])
@@ -623,7 +635,14 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			CBString tickSpacing = *bformat("Tick spacing: %d", appWindows[appWindowId]->m_ExtendedLinesTickSpacing);
 			GetPlugIn()->AddPopupListElement(length, "", SRW_UPDATE_CENTERLINE + appWindowId);
 			GetPlugIn()->AddPopupListElement(tickSpacing, "", SRW_UPDATE_TICKSPACING + appWindowId);
+		}
+		else if (strcmp(sObjectId, "predictedtrackline") == 0) {
+			GetPlugIn()->OpenPopupList(Area, "SRW Predicted Track Line", 1);
 
+			CBString length = *bformat("Length: %.1f", appWindows[appWindowId]->m_PredictedTrackLineLength);
+			CBString width = *bformat("Width: %d", appWindows[appWindowId]->m_PredictedTrackLineWidth);
+			GetPlugIn()->AddPopupListElement(length, "", SRW_UPDATE_PREDICTEDLENGTH + appWindowId);
+			GetPlugIn()->AddPopupListElement(width, "", SRW_UPDATE_PREDICTEDWIDTH + appWindowId);
 		}
 	}
 
@@ -1186,13 +1205,22 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 			onFunctionCallDoubleCallHack = true;
 			break;
 		}
-
 		else if (FunctionId == SRW_UPDATE_TICKSPACING + id) {
 			GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SRW_TICKSPACING_EDITOR + id, bstr2cstr(bformat("%d", appWindows[id]->m_ExtendedLinesTickSpacing), ' '));
 			onFunctionCallDoubleCallHack = true;
 			break;
 		}
-		
+		else if (FunctionId == SRW_UPDATE_PREDICTEDLENGTH + id) {
+			GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SRW_PREDICTEDLENGTH_EDITOR + id, bstr2cstr(bformat("%.1f", appWindows[id]->m_PredictedTrackLineLength), ' '));
+			onFunctionCallDoubleCallHack = true;
+			break;
+		}
+		else if (FunctionId == SRW_UPDATE_PREDICTEDWIDTH + id) {
+			GetPlugIn()->OpenPopupEdit(Area, TAG_FUNC_SRW_PREDICTEDWIDTH_EDITOR + id, bstr2cstr(bformat("%d", appWindows[id]->m_PredictedTrackLineWidth), ' '));
+			onFunctionCallDoubleCallHack = true;
+			break;
+		}
+
 		else if (FunctionId == TAG_FUNC_SRW_ZOOM_EDITOR + id) {
 			if (onFunctionCallDoubleCallHack) {
 				appWindows[id]->m_Zoom = strtof(sItemString, NULL);
@@ -1231,6 +1259,20 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 		else if (FunctionId == TAG_FUNC_SRW_TICKSPACING_EDITOR + id) {
 			if (onFunctionCallDoubleCallHack) {				
 				appWindows[id]->m_ExtendedLinesTickSpacing = atoi(sItemString);				
+				onFunctionCallDoubleCallHack = false;
+			}
+			break;
+		}
+		else if (FunctionId == TAG_FUNC_SRW_PREDICTEDLENGTH_EDITOR + id) {
+			if (onFunctionCallDoubleCallHack) {
+				appWindows[id]->m_PredictedTrackLineLength = strtof(sItemString, NULL);
+				onFunctionCallDoubleCallHack = false;
+			}
+			break;
+		}
+		else if (FunctionId == TAG_FUNC_SRW_PREDICTEDWIDTH_EDITOR + id) {
+			if (onFunctionCallDoubleCallHack) {
+				appWindows[id]->m_PredictedTrackLineWidth = atoi(sItemString);
 				onFunctionCallDoubleCallHack = false;
 			}
 			break;
@@ -2403,17 +2445,33 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 		}
 
 		// Predicted Track Line
-		CPen predictTrackPen(PS_SOLID, predictedTrackWidth, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
-		dc->SelectObject(&predictTrackPen);
-		
-		if (reportedGS > 50) {
-			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (predictedTrackLength * 60.0);
+		if (insetWindow == nullptr) {
+			CPen predictTrackPen(PS_SOLID, predictedTrackWidth, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
+			dc->SelectObject(&predictTrackPen);
+
+			if (reportedGS > 50) {
+				double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (predictedTrackLength * 60.0);
+				CPosition PredictedEnd = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
+
+				dc->MoveTo(ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition()));
+				dc->LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
+			}
+		}
+		else {
+			CPen predictTrackPen(PS_SOLID, insetWindow->m_PredictedTrackLineWidth, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
+			dc->SelectObject(&predictTrackPen);
+
+			double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (insetWindow->m_PredictedTrackLineLength * 60.0);
 			CPosition PredictedEnd = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
 
-			dc->MoveTo(ConvertCoordFromPositionToPixel(rt.GetPosition().GetPosition()));
-			dc->LineTo(ConvertCoordFromPositionToPixel(PredictedEnd));
+			POINT startPoint = insetWindow->projectPoint(rt.GetPosition().GetPosition(), AirportPositions[ActiveAirport]);
+			POINT endPoint = insetWindow->projectPoint(PredictedEnd, AirportPositions[ActiveAirport]);
+
+			dc->MoveTo(startPoint);
+			dc->LineTo(endPoint);
 		}
 
+		// Mouseover symbol
 		if (mouseWithin({ acPosPix.x - 5, acPosPix.y - 5, acPosPix.x + 5, acPosPix.y + 5 })) {
 			dc->MoveTo(acPosPix.x, acPosPix.y - 8);
 			dc->LineTo(acPosPix.x - 6, acPosPix.y - 12);

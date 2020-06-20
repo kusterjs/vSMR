@@ -20,8 +20,9 @@ public:
 	POINT m_Offset = { 0, 0 }, m_OffsetInit = { 0, 0 }, m_OffsetDrag = { 0, 0 };
 	bool m_Grip = false;
 	float m_Zoom = 20, m_Rotation = 0;
-	int m_ExtendedLinesLength = 15;
-	int m_ExtendedLinesTickSpacing = 1;
+	int m_ExtendedLinesLength = 15, m_ExtendedLinesTickSpacing = 1;
+	float m_PredictedTrackLineLength = 0.0f;
+	int m_PredictedTrackLineWidth = 1;
 
 	map<string, double> m_TagAngles;
 

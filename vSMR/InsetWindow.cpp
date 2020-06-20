@@ -752,6 +752,10 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 	CRect CenterlineRect = DrawToolbarButton(&dc, "C", TopBar, 55, mouseLocation);
 	radar_screen->AddScreenObject(m_Id, "centerline", CenterlineRect, false, "");
 
+	// Predicted track line button
+	CRect PredictedTrackLineRect = DrawToolbarButton(&dc, "P", TopBar, 68, mouseLocation);
+	radar_screen->AddScreenObject(m_Id, "predictedtrackline", PredictedTrackLineRect, false, "");
+
 	dc.SetTextColor(oldTextColorC);
 
 	// Close
