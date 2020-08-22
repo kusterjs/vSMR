@@ -57,14 +57,7 @@ clock_t timer;
 
 CBString myfrequency;
 
-map<CBString, CBString> vStrips_Stands;
-
-bool startThreadvStrips = true;
-
 using namespace SMRPluginSharedData;
-asio::ip::udp::socket* _socket;
-asio::ip::udp::endpoint receiver_endpoint;
-//std::thread vStripsThread;
 char recv_buf[1024];
 
 vector<CSMRRadar*> RadarScreensOpened;
@@ -243,48 +236,6 @@ void sendDatalinkClearance(void * arg)
 	}
 };
 
-void vStripsReceiveThread(const asio::error_code &error, size_t bytes_transferred)
-{
-	// @TODO @HACK @BUG
-	// Never tested this with the new CBString, no idea if it works
-	// And since vStrips is no longer really a thing, is there any reason to still keep it?
-
-	Logger::info(__FUNCSIG__);
-	CBString out(recv_buf, bytes_transferred);
-
-	// Processing the data
-	CBStringList data;
-	data.split(out, ':');
-
-	if (data.front() == "STAND") {
-		CSMRRadar::vStripsStands[data.at(1)] = data.back();
-	}
-
-	if (data.front() == "DELETE") {
-		if (CSMRRadar::vStripsStands.find(data.back()) != CSMRRadar::vStripsStands.end()) {
-			CSMRRadar::vStripsStands.erase(CSMRRadar::vStripsStands.find(data.back()));
-		}
-	}
-
-	if (!error) {
-		_socket->async_receive_from(asio::buffer(recv_buf), receiver_endpoint,
-			std::bind(&vStripsReceiveThread, std::placeholders::_1, std::placeholders::_2));
-	}
-}
-
-void vStripsThreadFunction(void * arg)
-{
-	try {
-		_socket = new asio::ip::udp::socket(io_service, asio::ip::udp::endpoint(asio::ip::udp::v4(), VSTRIPS_PORT));
-		_socket->async_receive_from(asio::buffer(recv_buf), receiver_endpoint,
-			std::bind(&vStripsReceiveThread, std::placeholders::_1, std::placeholders::_2));
-
-		io_service.run();
-	}
-	catch (std::exception& e) {
-		std::cerr << e.what() << std::endl;
-	}
-}
 
 
 CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PLUGIN_NAME, MY_PLUGIN_VERSION, MY_PLUGIN_DEVELOPER, MY_PLUGIN_COPYRIGHT)
@@ -325,14 +276,6 @@ CSMRPlugin::CSMRPlugin(void) :CPlugIn(EuroScopePlugIn::COMPATIBILITY_CODE, MY_PL
 	GetModuleFileNameA(HINSTANCE(&__ImageBase), DllPathFile, sizeof(DllPathFile));
 	Logger::DLL_PATH = DllPathFile;
 	Logger::DLL_PATH.rtrim("vSMR.dll");
-
-	try {
-		//vStripsThread = std::thread();
-		_beginthread(vStripsThreadFunction, 0, NULL);
-	}
-	catch (std::exception& e) {
-		std::cerr << e.what() << std::endl;
-	}
 }
 
 CSMRPlugin::~CSMRPlugin()

@@ -5,7 +5,6 @@
 #include <chrono>
 #include <thread>
 #include <algorithm>
-#include "asio.hpp"
 
 #include "HttpHelper.hpp"
 #include "CPDLCSettingsDialog.hpp"
