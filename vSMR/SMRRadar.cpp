@@ -312,6 +312,9 @@ void CSMRRadar::OnAsrContentLoaded(bool Loaded)
 	if ((p_value = GetDataFromAsr("PredictedTrackWidth")) != NULL)
 		predictedTrackWidth = atoi(p_value);
 
+	if ((p_value = GetDataFromAsr("PredictedTrackSpeedThreshold")) != NULL)
+		predictedTrackSpeedThreshold = atoi(p_value);
+
 	if ((p_value = GetDataFromAsr("CustomCursor")) != NULL)
 		useCustomCursor = atoi(p_value) == 1 ? true : false;
 
@@ -396,6 +399,9 @@ void CSMRRadar::OnAsrContentToBeSaved()
 
 	temp.format("%d", predictedTrackWidth);
 	SaveDataToAsr("PredictedTrackWidth", "vSMR Predicted Track Lines", temp);
+
+	temp.format("%d", predictedTrackSpeedThreshold);
+	SaveDataToAsr("PredictedTrackSpeedThreshold", "vSMR Predicted Track Lines", temp);
 
 	temp.format("%d", isProMode);
 	SaveDataToAsr("ProMode", "vSMR Professional mode for correlation", temp);
@@ -709,6 +715,7 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 			GetPlugIn()->AddPopupListElement("APPR Trail Dots", "", RIMCAS_OPEN_LIST);
 			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Length: %.1f", predictedTrackLength), ' '), "", RIMCAS_UPDATE_PTL_LENGTH_EDIT);
 			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Width: %d", predictedTrackWidth), ' '), "", RIMCAS_UPDATE_PTL_WIDTH_EDIT);
+			GetPlugIn()->AddPopupListElement(bstr2cstr(bformat("Predicted Track Line Speed Threshold: %d", predictedTrackSpeedThreshold), ' '), "", RIMCAS_UPDATE_PTL_SPEED_EDIT);
 			GetPlugIn()->AddPopupListElement("Acquire", "", RIMCAS_UPDATE_ACQUIRE);
 			GetPlugIn()->AddPopupListElement("Release", "", RIMCAS_UPDATE_RELEASE);
 			GetPlugIn()->AddPopupListElement("Close", "", RIMCAS_CLOSE, false, 2, false, true);
@@ -1020,10 +1027,20 @@ void CSMRRadar::OnFunctionCall(int FunctionId, const char * sItemString, POINT P
 	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDIT) {
 		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_WIDTH_EDITOR, bstr2cstr(bformat("%d", predictedTrackWidth), ' '));
 		onFunctionCallDoubleCallHack = true;
-	}
+	}	
 	else if (FunctionId == RIMCAS_UPDATE_PTL_WIDTH_EDITOR) {
 		if (onFunctionCallDoubleCallHack) {
 			predictedTrackWidth = atoi(sItemString);
+			onFunctionCallDoubleCallHack = false;
+		}
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_SPEED_EDIT) {
+		GetPlugIn()->OpenPopupEdit(Area, RIMCAS_UPDATE_PTL_SPEED_EDITOR, bstr2cstr(bformat("%d", predictedTrackSpeedThreshold), ' '));
+		onFunctionCallDoubleCallHack = true;
+	}
+	else if (FunctionId == RIMCAS_UPDATE_PTL_SPEED_EDITOR) {
+		if (onFunctionCallDoubleCallHack) {
+			predictedTrackSpeedThreshold = atoi(sItemString);
 			onFunctionCallDoubleCallHack = false;
 		}
 	}
@@ -2449,7 +2466,7 @@ void CSMRRadar::DrawTargets(Graphics* graphics, CDC* dc, CInsetWindow* insetWind
 			CPen predictTrackPen(PS_SOLID, predictedTrackWidth, ColorManager->get_corrected_color("symbol", Gdiplus::Color::White).ToCOLORREF());
 			dc->SelectObject(&predictTrackPen);
 
-			if (reportedGS > 50) {
+			if (reportedGS > predictedTrackSpeedThreshold) {
 				double d = double(rt.GetPosition().GetReportedGS()*0.514444) * (predictedTrackLength * 60.0);
 				CPosition PredictedEnd = BetterHarversine(rt.GetPosition().GetPosition(), rt.GetTrackHeading(), d);
 

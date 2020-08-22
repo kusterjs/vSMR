@@ -173,6 +173,7 @@ public:
 	int Trail_App = 4;
 	float predictedTrackLength = 0.5;
 	int predictedTrackWidth = 1;
+	int predictedTrackSpeedThreshold = 20;
 
 	bool NeedCorrelateCursor = false;
 	bool ReleaseInProgress = false;
