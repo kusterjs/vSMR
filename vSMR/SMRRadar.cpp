@@ -413,7 +413,8 @@ void CSMRRadar::OnAsrContentToBeSaved()
 	SaveDataToAsr("AutoDeconfliction", "vSMR Tag auto deconfliction", temp);
 
 	for (int i = 1; i < 3; i++) {
-		CBString prefix(*bformat("SRW%d", i));
+		CBString prefix;
+		prefix.format("SRW%d", i);
 
 		temp.format("%ld", appWindows[i]->m_Area.left);
 		SaveDataToAsr(prefix + "TopLeftX", prefix + " position", temp);
@@ -617,8 +618,10 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		else if (strcmp(sObjectId, "view") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW View", 1);
 
-			CBString zoom = *bformat("Zoom: %.1f", appWindows[appWindowId]->m_Zoom);
-			CBString rotate = *bformat("Rotation: %.1f", appWindows[appWindowId]->m_Rotation);
+			CBString zoom;
+			zoom.format("Zoom: %.1f", appWindows[appWindowId]->m_Zoom);
+			CBString rotate;
+			rotate.format("Rotation: %.1f", appWindows[appWindowId]->m_Rotation);
 
 			GetPlugIn()->AddPopupListElement(zoom, "", SRW_UPDATE_ZOOM + appWindowId);
 			GetPlugIn()->AddPopupListElement(rotate, "", SRW_UPDATE_ROTATE + appWindowId);
@@ -627,8 +630,10 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		else if (strcmp(sObjectId, "filters") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Filters", 1);
 
-			CBString range = *bformat("Range: %d", appWindows[appWindowId]->m_RadarRange);
-			CBString filter = *bformat("Alt. filter: %d", appWindows[appWindowId]->m_AltFilter);
+			CBString range;
+			range.format("Range: %d", appWindows[appWindowId]->m_RadarRange);
+			CBString filter;
+			filter.format("Alt. filter: %d", appWindows[appWindowId]->m_AltFilter);
 
 			GetPlugIn()->AddPopupListElement(range, "", SRW_UPDATE_RANGE + appWindowId);
 			GetPlugIn()->AddPopupListElement(filter, "", SRW_UPDATE_FILTER + appWindowId);
@@ -637,16 +642,20 @@ void CSMRRadar::OnClickScreenObject(int ObjectType, const char * sObjectId, POIN
 		else if (strcmp(sObjectId, "centerline") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Extended Centerline", 1);
 
-			CBString length = *bformat("Length: %d", appWindows[appWindowId]->m_ExtendedLinesLength);
-			CBString tickSpacing = *bformat("Tick spacing: %d", appWindows[appWindowId]->m_ExtendedLinesTickSpacing);
+			CBString length;
+			length.format("Length: %d", appWindows[appWindowId]->m_ExtendedLinesLength);
+			CBString tickSpacing;
+			tickSpacing.format("Tick spacing: %d", appWindows[appWindowId]->m_ExtendedLinesTickSpacing);
 			GetPlugIn()->AddPopupListElement(length, "", SRW_UPDATE_CENTERLINE + appWindowId);
 			GetPlugIn()->AddPopupListElement(tickSpacing, "", SRW_UPDATE_TICKSPACING + appWindowId);
 		}
 		else if (strcmp(sObjectId, "predictedtrackline") == 0) {
 			GetPlugIn()->OpenPopupList(Area, "SRW Predicted Track Line", 1);
 
-			CBString length = *bformat("Length: %.1f", appWindows[appWindowId]->m_PredictedTrackLineLength);
-			CBString width = *bformat("Width: %d", appWindows[appWindowId]->m_PredictedTrackLineWidth);
+			CBString length;
+			length.format("Length: %.1f", appWindows[appWindowId]->m_PredictedTrackLineLength);
+			CBString width;
+			width.format("Width: %d", appWindows[appWindowId]->m_PredictedTrackLineWidth);
 			GetPlugIn()->AddPopupListElement(length, "", SRW_UPDATE_PREDICTEDLENGTH + appWindowId);
 			GetPlugIn()->AddPopupListElement(width, "", SRW_UPDATE_PREDICTEDWIDTH + appWindowId);
 		}
@@ -1441,11 +1450,12 @@ CBString CSMRRadar::GetBottomLine(const char * Callsign)
 	Logger::info(__FUNCSIG__);
 
 	CFlightPlan fp = GetPlugIn()->FlightPlanSelect(Callsign);
-	CBString to_render = "";
+	CBString to_render;
 
 	if (fp.IsValid()) {
 
-		CBString icao_callsign = *bformat("%.*s", 3, Callsign);		
+		CBString icao_callsign = "";
+		icao_callsign.format("%.*s", 3, Callsign);
 		CBString full_callsign = Callsigns->GetFullCallsign(icao_callsign);
 
 		to_render.format("%s (%s) (%s): %s ", Callsign, full_callsign.data, fp.GetPilotName(), fp.GetFlightPlanData().GetAircraftFPType());
@@ -1456,24 +1466,26 @@ CBString CSMRRadar::GetBottomLine(const char * Callsign)
 			const char* fpType = fp.GetFlightPlanData().GetPlanType();
 
 			if (strlen(assr) != 0 && !StartsWith(ssr, assr)) {		
-				to_render += *bformat("%s:%s (%s)", fpType, ssr, assr);
+				to_render.format("%s:%s (%s)", fpType, ssr, assr);
 			}
 			else {
-				to_render += *bformat("%s:%s", fpType, ssr);
+				to_render.format("%s:%s", fpType, ssr);
 			}
 
-			to_render += *bformat(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
+			CBString temp;
+			temp.format(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
+			to_render += temp;
 
 			int rfl = fp.GetControllerAssignedData().GetFinalAltitude();
 			if (rfl == 0)
 				rfl = fp.GetFlightPlanData().GetFinalAltitude();
 
 			if (rfl > GetPlugIn()->GetTransitionAltitude())
-				to_render += *bformat("FL%d", rfl / 100);				
+				to_render.formata("FL%d", rfl / 100);				
 			else
-				to_render += *bformat("%dft", rfl);				
+				to_render.formata("%dft", rfl);
 
-			to_render += *bformat(" Route: %s", fp.GetFlightPlanData().GetRoute());		
+			to_render.formata(" Route: %s", fp.GetFlightPlanData().GetRoute());
 		}
 	}
 

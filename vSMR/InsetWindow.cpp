@@ -737,8 +737,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 	radar_screen->AddScreenObject(m_Id, "topbar", TopBar, true, "");
 
-	bstring Toptext = bformat("SRW %d", m_Id - SRW_APPWINDOW);
-	dc.TextOutA(TopLeftText.x + (TopBar.right-TopBar.left) / 2 - dc.GetTextExtent("SRW 1").cx , TopLeftText.y, bstr2cstr(Toptext, ' '));
+	CString Toptext("SRW %d", m_Id - SRW_APPWINDOW);
+	dc.TextOutA(TopLeftText.x + (TopBar.right-TopBar.left) / 2 - dc.GetTextExtent("SRW 1").cx , TopLeftText.y, Toptext);
 
 	// View button
 	CRect RangeRect = DrawToolbarButton(&dc, "V", TopBar, 29, mouseLocation);

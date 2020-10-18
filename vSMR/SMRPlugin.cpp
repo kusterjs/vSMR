@@ -182,7 +182,7 @@ void sendDatalinkClearance(void * arg)
 	url += DatalinkToSend.callsign;
 	url += "&type=CPDLC&packet=/data2/";
 	messageId++;
-	url += CBString(*bformat("%d", messageId));
+	url.formata("%d", messageId);
 	url += "//R/";
 	url += "CLR TO @";
 	url += DatalinkToSend.destination;
@@ -410,7 +410,9 @@ void CSMRPlugin::OnGetTagItem(CFlightPlan FlightPlan, CRadarTarget RadarTarget, 
 void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT Pt, RECT Area)
 {
 	Logger::info(__FUNCSIG__);
-	Logger::info(*bformat("%d - %s", FunctionId, sItemString));
+	CBString temp;
+	temp.format("%d - %s", FunctionId, sItemString);
+	Logger::info(temp);
 
 	/* 	-----------------------------------------------------------------------------------------------
 	This function is seemingly called twice when coming from a popup edit box
@@ -563,9 +565,10 @@ void CSMRPlugin::OnFunctionCall(int FunctionId, const char * sItemString, POINT 
 			dia.m_Rwy = FlightPlan.GetFlightPlanData().GetDepartureRwy();
 			dia.m_SSR = FlightPlan.GetControllerAssignedData().GetSquawk();
 
-			CBString nextFreq = *bformat("%.3f", ControllerMyself().GetPrimaryFrequency());
+			CBString nextFreq;
+			nextFreq.format("%.3f", ControllerMyself().GetPrimaryFrequency());
 			if (ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency() != 0)
-				nextFreq = *bformat("%.3f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
+				nextFreq.format("%.3f", ControllerSelect(FlightPlan.GetCoordinatedNextController()).GetPrimaryFrequency());
 			nextFreq.trunc(7);
 			dia.m_Freq = CString((const char*)nextFreq);
 			
