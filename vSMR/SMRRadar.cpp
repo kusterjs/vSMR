@@ -2663,7 +2663,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 
 		// get label lines definitions
 		const char* def = "definition";
-		if (tagDetailed.count(rt.GetCallsign()) > 0) {
+		if (tagDetailed.count(rt.GetCallsign()) > 0 && LabelsSettings[getEnumString(TagType)]["definition_full"].IsArray()) {
 			def = "definition_full";
 		}
 
