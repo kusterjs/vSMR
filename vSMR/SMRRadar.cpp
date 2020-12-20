@@ -2671,7 +2671,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		vector<vector<TagItem>> ReplacedLabelLines;
 
 		if (!LabelLines.IsArray())
-			return;
+			continue;
 		
 
 		REAL TagWidth = 0, TagHeight = 0;
