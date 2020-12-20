@@ -248,7 +248,7 @@ public:
 		}
 	};
 
-	static CBString GetStandNumber(CFlightPlan fp)
+	static CBString GetStandNumber_DEPRECATED(CFlightPlan fp)
 	{
 		if (!fp.IsValid())
 			return "";
@@ -264,7 +264,18 @@ public:
 		return "";
 	}
 
-	static void SetStandNumber(CFlightPlan fp, CBString stand)
+	static CBString GetStandNumber(CFlightPlan fp) {
+		if (!fp.IsValid())
+			return "";
+
+		const char* standText = fp.GetControllerAssignedData().GetFlightStripAnnotation(6);
+		auto pEnd = strpbrk(standText + 2, "/s");
+		char stand[16];
+		strncpy_s(stand, standText + 2, pEnd - (standText + 2));
+		return stand;
+	}
+
+	static void SetStandNumber_DEPRECATED(CFlightPlan fp, CBString stand)
 	{
 		if (!fp.IsValid())
 			return;
@@ -295,6 +306,17 @@ public:
 
 		fp.GetFlightPlanData().SetRemarks(remarks);
 		fp.GetFlightPlanData().AmendFlightPlan();
+	}
+
+	static void SetStandNumber(CFlightPlan fp, CBString stand) {
+		if (!fp.IsValid())
+			return;
+		if (stand == "") {
+			fp.GetControllerAssignedData().SetFlightStripAnnotation(6, "");			
+		}
+		else {
+			fp.GetControllerAssignedData().SetFlightStripAnnotation(6, "s/" + stand + "/s");
+		}
 	}
 
 	bool IsAcOnRunway(CRadarTarget Ac)

@@ -2901,7 +2901,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
 						(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
 
-					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
+					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, (insetWindow == nullptr), GetBottomLine(rt.GetCallsign()));	// Moveable sets to TRUE only in main SMR window, not insets, so we can't drag the tag from the inset
 
 					widthOffset += mRect.GetRight();	
 
