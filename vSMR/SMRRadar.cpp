@@ -1466,15 +1466,13 @@ CBString CSMRRadar::GetBottomLine(const char * Callsign)
 			const char* fpType = fp.GetFlightPlanData().GetPlanType();
 
 			if (strlen(assr) != 0 && !StartsWith(ssr, assr)) {		
-				to_render.format("%s:%s (%s)", fpType, ssr, assr);
+				to_render.formata("%s:%s (%s)", fpType, ssr, assr);
 			}
 			else {
-				to_render.format("%s:%s", fpType, ssr);
+				to_render.formata("%s:%s", fpType, ssr);
 			}
 
-			CBString temp;
-			temp.format(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
-			to_render += temp;
+			to_render.formata(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
 
 			int rfl = fp.GetControllerAssignedData().GetFinalAltitude();
 			if (rfl == 0)
