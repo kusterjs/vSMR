@@ -737,7 +737,8 @@ void CInsetWindow::render(HDC hDC, CSMRRadar * radar_screen, Graphics* gdi, POIN
 
 	radar_screen->AddScreenObject(m_Id, "topbar", TopBar, true, "");
 
-	CString Toptext("SRW %d", m_Id - SRW_APPWINDOW);
+	CString Toptext;
+	Toptext.Format("SRW %d", m_Id - SRW_APPWINDOW);
 	dc.TextOutA(TopLeftText.x + (TopBar.right-TopBar.left) / 2 - dc.GetTextExtent("SRW 1").cx , TopLeftText.y, Toptext);
 
 	// View button

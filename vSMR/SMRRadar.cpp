@@ -1466,15 +1466,13 @@ CBString CSMRRadar::GetBottomLine(const char * Callsign)
 			const char* fpType = fp.GetFlightPlanData().GetPlanType();
 
 			if (strlen(assr) != 0 && !StartsWith(ssr, assr)) {		
-				to_render.format("%s:%s (%s)", fpType, ssr, assr);
+				to_render.formata("%s:%s (%s)", fpType, ssr, assr);
 			}
 			else {
-				to_render.format("%s:%s", fpType, ssr);
+				to_render.formata("%s:%s", fpType, ssr);
 			}
 
-			CBString temp;
-			temp.format(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
-			to_render += temp;
+			to_render.formata(" %s==>%s (%s) at ", fp.GetFlightPlanData().GetOrigin(), fp.GetFlightPlanData().GetDestination(), fp.GetFlightPlanData().GetAlternate());
 
 			int rfl = fp.GetControllerAssignedData().GetFinalAltitude();
 			if (rfl == 0)
@@ -2671,7 +2669,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 		vector<vector<TagItem>> ReplacedLabelLines;
 
 		if (!LabelLines.IsArray())
-			return;
+			continue;
 		
 
 		REAL TagWidth = 0, TagHeight = 0;
@@ -2901,7 +2899,7 @@ void CSMRRadar::DrawTags(Graphics* graphics, CInsetWindow* insetWindow)
 					CRect ItemRect((int)(TagBackgroundRect.left + widthOffset), (int)(TagBackgroundRect.top + heightOffset),
 						(int)(TagBackgroundRect.left + widthOffset + mRect.GetRight()), (int)(TagBackgroundRect.top + heightOffset + mRect.GetBottom()));
 
-					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, true, GetBottomLine(rt.GetCallsign()));
+					AddScreenObject(tagItem.function, rt.GetCallsign(), ItemRect, (insetWindow == nullptr), GetBottomLine(rt.GetCallsign()));	// Moveable sets to TRUE only in main SMR window, not insets, so we can't drag the tag from the inset
 
 					widthOffset += mRect.GetRight();	
 
